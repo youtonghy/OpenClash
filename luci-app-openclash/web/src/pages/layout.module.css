@@ -1,0 +1,24 @@
+.page { width: 100%; max-width: 1200px; margin-inline: auto; padding: 32px clamp(16px, 4vw, 32px) 56px; display: grid; gap: 24px; }
+.page > * { min-width: 0; }
+.header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
+.title { margin: 0; font-family: var(--font-display); font-size: var(--text-3xl); font-weight: 500; letter-spacing: var(--tracking-display); line-height: var(--leading-display); color: var(--foreground); }
+.sub { margin: 4px 0 0; color: var(--text-secondary); font-size: var(--text-sm); }
+.tools { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.card { border: 1px solid var(--border); border-radius: var(--radius-surface); background: var(--surface); padding: 24px; display: grid; gap: 16px; min-width: 0; }
+.cardTitle { margin: 0; color: var(--foreground); font-size: var(--text-base); font-weight: 500; }
+.hint { margin: 0; color: var(--text-muted); font-size: var(--text-sm); }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: start; }
+.row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.row:first-of-type { border-top: 0; }
+.rowMain { display: grid; gap: 2px; min-width: 0; flex: 1 1 240px; }
+.rowName { color: var(--foreground); font-size: var(--text-sm); font-weight: 500; overflow-wrap: anywhere; }
+.rowMeta { color: var(--text-muted); font-size: var(--text-xs); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.log { margin: 0; max-height: 60vh; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs); line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.editor { border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; min-height: 320px; }
+.field { display: grid; gap: 6px; }
+.fieldHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fieldLabel { color: var(--foreground); font-size: var(--text-sm); font-weight: 500; }
+.fieldDesc { margin: 0; color: var(--text-muted); font-size: var(--text-xs); }
+.textarea { width: 100%; min-height: 96px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--foreground); font: inherit; font-size: var(--text-sm); resize: vertical; }
+.tableScroll { overflow-x: auto; overscroll-behavior-x: contain; }

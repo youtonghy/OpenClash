@@ -817,3 +817,18 @@ function optimize_cbi_ui()
 		</script>
 	]])
 end
+
+-- Address checks shared by the diagnostics; results are passed to shell commands.
+datatype = {}
+
+function datatype.hostname(value)
+	if type(value) ~= "string" or #value == 0 or #value > 253 then return false end
+	if value:match("^%.") or value:match("%.%.") then return false end
+	return value:match("^[%w%-%._]+$") ~= nil
+end
+
+function datatype.ipaddr(value)
+	if type(value) ~= "string" then return false end
+	return value:match("^%d+%.%d+%.%d+%.%d+$") ~= nil or (value:find(":", 1, true) ~= nil and value:match("^[%x:%.]+$") ~= nil)
+end
+

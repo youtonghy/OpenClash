@@ -13,6 +13,13 @@ trap 'rm -rf "$WORK"' EXIT
 mkdir -p "$WORK/data/usr/lib/lua/luci/i18n" "$WORK/control"
 cp -R "$ROOT/root/." "$WORK/data/"
 cp -R "$ROOT/luasrc/." "$WORK/data/usr/lib/lua/luci/"
+
+# Same permissions as Build/Prepare in the Makefile: the repository stores everything as 0644.
+find "$WORK/data" -type d -exec chmod 755 {} +
+find "$WORK/data" -type f -exec chmod 644 {} +
+chmod 755 "$WORK/data/etc/init.d/openclash"
+chmod -R 755 "$WORK/data/usr/share/openclash"
+
 find "$WORK/data/usr/lib/lua/luci" "$WORK/data/www" -type f \( -name '*.lua' -o -name '*.htm' \) \
 	-exec sed -i '' "s|@OPENCLASH_VERSION@|$VERSION|g" {} + 2>/dev/null || true
 

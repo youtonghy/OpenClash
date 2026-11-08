@@ -6,7 +6,7 @@ require "luci.sys"
 local uci = require("luci.model.uci").cursor()
 local fs = require "luci.openclash"
 local json = require "luci.jsonc"
-local datatype = require "luci.cbi.datatypes"
+local datatype = require("luci.openclash").datatype
 local addr = arg[1]
 
 if addr and not (datatype.hostname(addr) or datatype.ipaddr(addr)) then

@@ -5,7 +5,7 @@ require "luci.util"
 require "luci.sys"
 local uci = require("luci.model.uci").cursor()
 local json = require "luci.jsonc"
-local datatype = require "luci.cbi.datatypes"
+local datatype = require("luci.openclash").datatype
 local fs = require "luci.openclash"
 
 local addr = arg[1]
