@@ -1,32 +1,42 @@
-# React + TypeScript + Vite
+# OpenClash web app
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The LuCI pages of this package are a React app built from this directory. The router only serves
+the built files; Node is not needed on the device.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm install
+npm run build   # writes to ../root/www/luci-static/resources/openclash/app
+npx oxlint src/pages src/lib src/App.tsx
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+The built files are committed so the OpenWrt SDK can package them without Node. Run the build and
+commit the result whenever `src/` changes.
+
+## Data flow
+
+- `luasrc/controller/openclash.lua` only declares routes. Handlers live in
+  `luasrc/openclash/api/*.lua` and load on first use.
+- Mutating routes use LuCI's `post()` and need the token from `window.__OC__`. Upload routes read the
+  token from the query string, because their body must not be parsed before the file handler is set.
+- Live traffic, connections and providers come straight from the mihomo controller, through
+  `/oc-api` when nginx provides it and otherwise on the controller port.
+
+## Settings
+
+`src/generated/settings-schema.json` describes every option on the settings page, and
+`luasrc/openclash/api/settings_schema.lua` is the allowlist the API writes. Keep the two in step when
+adding an option.
+
+## Arc components
+
+`src/components/arc` holds Arc and Arc Pro source installed with the shadcn CLI. Installing more needs
+`ARC_PRO_TOKEN` in `.env.local`, which is ignored by git:
+
+```sh
+npx shadcn@latest add @uiarc/<name>
+npx shadcn@latest add @uiarc-pro/<name>
+```
+
+## Packaging
+
+`../tools/build-ipk.sh <output-dir>` builds the ipk without the OpenWrt SDK.

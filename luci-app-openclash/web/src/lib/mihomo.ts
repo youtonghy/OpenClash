@@ -14,17 +14,18 @@ export type Connection = {
 export type Snapshot = { downloadTotal: number; uploadTotal: number; connections: Connection[]; memory?: number }
 
 /** nginx installs expose the controller under /oc-api; plain uhttpd installs reach it on its port. */
-let sameOrigin: boolean | undefined
+let probe: Promise<boolean> | undefined
+function hasSameOriginProxy(status: Status) {
+  probe ??= fetch('/oc-api/version', { headers: { Authorization: `Bearer ${status.dase ?? ''}` } })
+    .then(response => response.ok && (response.headers.get('content-type') ?? '').includes('json'))
+    .catch(() => false)
+  return probe
+}
+
 async function controllerBase(status: Status) {
-  if (sameOrigin === undefined) {
-    try {
-      const probe = await fetch('/oc-api/version', { headers: { Authorization: `Bearer ${status.dase ?? ''}` } })
-      sameOrigin = probe.ok && (probe.headers.get('content-type') ?? '').includes('json')
-    } catch {
-      sameOrigin = false
-    }
+  if (await hasSameOriginProxy(status)) {
+    return { http: `${location.origin}/oc-api`, ws: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/oc-api` }
   }
-  if (sameOrigin) return { http: `${location.origin}/oc-api`, ws: `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/oc-api` }
   const host = `${location.hostname}:${status.cn_port ?? '9090'}`
   return { http: `http://${host}`, ws: `ws://${host}` }
 }

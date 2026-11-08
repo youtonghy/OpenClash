@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { BarChart3, FileCode2, Files as FilesIcon, Gauge, Layers, ScrollText, Settings as SettingsIcon, Shuffle, RefreshCw, ExternalLink } from 'lucide-react'
 import { apiGet, app, isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { usePolling } from '@/lib/mihomo'
-import { Config } from '@/pages/Config'
-import { Files } from '@/pages/Files'
-import { Logs } from '@/pages/Logs'
 import { Overview } from '@/pages/Overview'
-import { Overwrite } from '@/pages/Overwrite'
-import { Providers } from '@/pages/Providers'
-import { Settings } from '@/pages/Settings'
-import { Stats } from '@/pages/Stats'
-import { Update } from '@/pages/Update'
 import styles from './App.module.css'
+
+const Stats = lazy(() => import('@/pages/Stats').then(m => ({ default: m.Stats })))
+const Config = lazy(() => import('@/pages/Config').then(m => ({ default: m.Config })))
+const Providers = lazy(() => import('@/pages/Providers').then(m => ({ default: m.Providers })))
+const Overwrite = lazy(() => import('@/pages/Overwrite').then(m => ({ default: m.Overwrite })))
+const Files = lazy(() => import('@/pages/Files').then(m => ({ default: m.Files })))
+const Settings = lazy(() => import('@/pages/Settings').then(m => ({ default: m.Settings })))
+const Update = lazy(() => import('@/pages/Update').then(m => ({ default: m.Update })))
+const Logs = lazy(() => import('@/pages/Logs').then(m => ({ default: m.Logs })))
 
 const nav = [
   { id: 'overview', label: t('概览', 'Overview'), icon: Gauge },
@@ -81,6 +82,7 @@ export default function App() {
         <a className={styles.back} href="/cgi-bin/luci/">{t('返回路由器管理', 'Back to router admin')}</a>
       </aside>
       <div className={styles.content}>
+        <Suspense fallback={null}>
         {page === 'overview' && <Overview status={status} refresh={refresh} />}
         {page === 'stats' && <Stats status={status} />}
         {page === 'config' && <Config />}
@@ -90,6 +92,7 @@ export default function App() {
         {page === 'settings' && <Settings />}
         {page === 'update' && <Update />}
         {page === 'logs' && <Logs />}
+        </Suspense>
       </div>
     </div>
   )

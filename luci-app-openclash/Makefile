@@ -24,12 +24,6 @@ define Package/$(PKG_NAME)/config
 	config PACKAGE_iptables-mod-extra
 	default y if ! PACKAGE_firewall4
 
-	config PACKAGE_dnsmasq_full_ipset
-	default y if ! PACKAGE_firewall4
-
-	config PACKAGE_dnsmasq_full_nftset
-	default y if PACKAGE_firewall4
-
 	config PACKAGE_ipset
 	default y if ! PACKAGE_firewall4
 endef
@@ -39,7 +33,7 @@ define Package/$(PKG_NAME)
 	SUBMENU:=3. Applications
 	TITLE:=LuCI support for clash
 	PKGARCH:=all
-	DEPENDS:=+dnsmasq-full +bash +curl +ca-bundle +ip-full \
+	DEPENDS:=+bash +curl +ca-bundle +ip-full \
 	+ruby +ruby-yaml +kmod-tun +unzip
 	MAINTAINER:=youtonghy
 endef
