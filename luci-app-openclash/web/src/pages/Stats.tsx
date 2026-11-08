@@ -58,7 +58,9 @@ function flows(items: Connection[], measure: Measure) {
 
 function shares(items: Connection[], measure: Measure): SplitSegment[] {
   const totals = new Map<string, number>()
-  for (const item of items) totals.set(outbound(item), (totals.get(outbound(item)) ?? 0) + weight(item, measure))
+  // bytes read better as MB in the readout
+  const scale = measure === 'count' ? 1 : 1048576
+  for (const item of items) totals.set(outbound(item), (totals.get(outbound(item)) ?? 0) + weight(item, measure) / scale)
   const sorted = [...totals.entries()].sort((a, b) => b[1] - a[1])
   const head = sorted.slice(0, 5).map(([id, value]) => ({ id, label: id, value }))
   const rest = sorted.slice(5).reduce((sum, [, value]) => sum + value, 0)
@@ -103,10 +105,12 @@ export function Stats({ status }: { status?: Status }) {
         : <>
             <section className={styles.card} aria-label={t('流向', 'Flow')}>
               <h2 className={styles.cardTitle}>{t('流量去向', 'Where traffic goes')}</h2>
-              <SankeyFlow nodes={flow.nodes} links={flow.links} label={t('设备到规则到策略组的流向', 'Flow from devices through rules to policies')} columns={[t('设备', 'Device'), t('规则', 'Rule'), t('策略组', 'Policy')]} unit={unit} formatValue={format} totalLabel={t('全部', 'the total')} emptyLabel={t('暂无连接', 'No connections yet')} height={380} />
+              {flow.links.length === 0
+                ? <EmptyState title={t('暂无连接', 'No connections yet')} description={t('有流量经过时，这里会显示实时去向。', 'Traffic appears here as it flows.')} />
+                : <SankeyFlow nodes={flow.nodes} links={flow.links} label={t('设备到规则到策略组的流向', 'Flow from devices through rules to policies')} columns={[t('设备', 'Device'), t('规则', 'Rule'), t('策略组', 'Policy')]} unit={unit} formatValue={format} totalLabel={t('全部', 'the total')} emptyLabel={t('暂无连接', 'No connections yet')} height={380} />}
             </section>
             <section className={styles.card} aria-label={t('出口占比', 'Exit share')}>
-              <SplitBar title={t('出口节点占比', 'Share by exit node')} segments={split} locale={locale} unit={unit} totalLabel={t('合计', 'Total')} format={measure === 'count' ? undefined : { maximumFractionDigits: 0 }} />
+              <SplitBar title={t('出口节点占比', 'Share by exit node')} segments={split} locale={locale} unit={measure === 'count' ? unit : 'MB'} totalLabel={t('合计', 'Total')} format={measure === 'count' ? undefined : { maximumFractionDigits: 1 }} />
             </section>
             <section className={styles.card} aria-label={t('活跃域名', 'Active hosts')}>
               <div className={styles.tableScroll}>
