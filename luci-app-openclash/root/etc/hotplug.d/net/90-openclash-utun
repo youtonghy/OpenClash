@@ -1,0 +1,21 @@
+#!/bin/sh
+# procd respawns a crashed core with a new utun device; the routes bound to the old one are gone.
+# Restore them as soon as the device appears, the kill switch blackhole holds traffic until then.
+
+[ "$ACTION" = "add" ] && [ "$INTERFACE" = "utun" ] || exit 0
+# only while the proxy rules are installed; a normal start adds the routes itself
+ip rule 2>/dev/null | grep -q "fwmark 0x162" || ip -6 rule 2>/dev/null | grep -q "fwmark 0x162" || exit 0
+
+(
+	i=0
+	while [ "$i" -lt 15 ]; do
+		ip link set utun up 2>/dev/null
+		if ip link show utun 2>/dev/null | grep -q "UP"; then
+			ip rule 2>/dev/null | grep -q "fwmark 0x162" && ip route replace default dev utun table 354 2>/dev/null
+			ip -6 rule 2>/dev/null | grep -q "fwmark 0x162" && ip -6 route replace default dev utun table 354 2>/dev/null
+			break
+		fi
+		i=$((i + 1))
+		sleep 1
+	done
+) &

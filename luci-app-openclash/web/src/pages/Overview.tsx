@@ -96,6 +96,24 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
 
       {error && <Alert tone="danger" title={t('操作失败', 'Action failed')}>{error}</Alert>}
 
+      {status.kill_switch_state === 'blocked' && (
+        <Alert tone="danger" title={t('断网保护已生效', 'Kill switch is active')}>
+          <p className={styles.hint}>{t('OpenClash 没有运行，局域网设备已暂时不能访问外网，防止流量绕过代理。', 'OpenClash is not running, so LAN devices cannot reach the internet. This keeps traffic from bypassing the proxy.')}</p>
+          <div className={styles.actions}>
+            <Button size="sm" loading={busy === 'start'} onClick={() => run('start', () => service('restart'))}>{t('重新启动', 'Start again')}</Button>
+            <Button size="sm" variant="secondary" loading={busy === 'bypass'} onClick={() => run('bypass', () => apiPost('kill_switch_action', { action: 'bypass' }))}>{t('临时放行', 'Allow direct access for now')}</Button>
+          </div>
+        </Alert>
+      )}
+      {status.kill_switch_state === 'bypass' && (
+        <Alert tone="warning" title={t('断网保护已临时放行', 'Kill switch is bypassed')}>
+          <p className={styles.hint}>{t('局域网设备现在可能直连外网。OpenClash 成功启动后会自动恢复保护。', 'LAN devices may reach the internet directly. Protection returns when OpenClash starts.')}</p>
+          <div className={styles.actions}>
+            <Button size="sm" variant="secondary" loading={busy === 'resume'} onClick={() => run('resume', () => apiPost('kill_switch_action', { action: 'resume' }))}>{t('恢复保护', 'Turn protection back on')}</Button>
+          </div>
+        </Alert>
+      )}
+
       <MetricTicker metrics={metrics} locale={locale} label={t('实时指标', 'Live metrics')} overflow="scroll" />
 
       <section className={styles.two} aria-label={t('实时流量', 'Live traffic')}>

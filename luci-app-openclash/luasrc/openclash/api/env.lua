@@ -104,6 +104,7 @@ local handlers = {
 	write_padded = "logs",
 	custom_file_get = "settings",
 	custom_file_save = "settings",
+	kill_switch_action = "settings",
 	settings_get = "settings",
 	settings_set = "settings"
 }

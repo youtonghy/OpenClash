@@ -13,6 +13,12 @@ uci -q set firewall.openclash=include
 uci -q set firewall.openclash.type=script
 uci -q set firewall.openclash.path=/var/etc/openclash.include
 [ -n "$(command -v fw4)" ] || uci -q set firewall.openclash.reload=1
+uci -q delete firewall.openclash_ks
+uci -q set firewall.openclash_ks=include
+uci -q set firewall.openclash_ks.type=script
+uci -q set firewall.openclash_ks.path=/usr/share/openclash/openclash_killswitch.sh
+uci -q set firewall.openclash_ks.fw4_compatible=1
+[ -n "$(command -v fw4)" ] || uci -q set firewall.openclash_ks.reload=1
 uci -q commit firewall
 
 mkdir -p /etc/openclash/config
@@ -191,6 +197,11 @@ if [ -f "$OC_UPGRADE_DIR/config" ]; then
 	fi
 	rm -rf "$OC_UPGRADE_DIR" >/dev/null 2>&1
 fi
+
+#Kill switch: on unless it was explicitly turned off. A core that is already running
+#stays reachable, otherwise the next firewall reload would block a healthy proxy.
+[ -n "$(uci -q get openclash.config.kill_switch)" ] || uci -q set openclash.config.kill_switch=1
+[ -n "$(pidof clash)" ] && { mkdir -p /var/run; echo open > /var/run/openclash_ks.state; }
 
 #Settings dropped by the trimmed build
 uci -q set openclash.config.enable_redirect_dns=2

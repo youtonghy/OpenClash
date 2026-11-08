@@ -399,6 +399,18 @@
    "placeholder": "5000 or 1234-2345"
   },
   {
+   "key": "kill_switch",
+   "tab": "traffic_control",
+   "type": "Flag",
+   "title": "断网保护",
+   "titleEn": "Kill switch",
+   "desc": "OpenClash 意外停止时阻断局域网设备直连外网，防止流量绕过代理。手动点“停止”不受影响。",
+   "descEn": "Blocks LAN devices from reaching the internet directly if OpenClash stops unexpectedly. Stopping it yourself is not affected.",
+   "default": "1",
+   "values": [],
+   "depends": []
+  },
+  {
    "key": "router_self_proxy",
    "tab": "traffic_control",
    "type": "Flag",

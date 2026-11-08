@@ -4,6 +4,7 @@
 START=99
 STOP=15
 USE_PROCD=1
+KILL_SWITCH=/usr/share/openclash/openclash_killswitch.sh
 EXTRA_COMMANDS="core_restart"
 EXTRA_HELP="	core_restart	Restart only the core process, keep firewall rules"
 
@@ -99,8 +100,13 @@ del_cron()
 
 start_fail()
 {
-   uci -q set openclash.config.enable=0
-   uci -q commit openclash
+   # With the kill switch on, a failed start stays enabled: LAN clients remain blocked and the
+   # next boot tries again, instead of the whole network silently going direct.
+   if [ "$(uci -q get openclash.config.kill_switch)" = "0" ]; then
+      uci -q set openclash.config.enable=0
+      uci -q commit openclash
+   fi
+   KS_HOLD=1
    stop
    exit 0
 }
@@ -567,6 +573,8 @@ check_core_status()
       LOG_TIP "Firewall Reload Successful!"
    fi
 
+   pidof clash >/dev/null && $KILL_SWITCH open
+
    write_run_quick
 } >/dev/null 2>&1
 
@@ -1002,6 +1010,16 @@ if [ -z "$(uci -q get firewall.openclash)" ] || [ -z "$(uci -q get ucitrack.@ope
    uci -q set firewall.openclash.type=script
    uci -q set firewall.openclash.path=/var/etc/openclash.include
    [ -n "$FW4" ] || uci -q set firewall.openclash.reload=1
+   uci -q commit firewall
+fi
+
+# firmware tools can rewrite the firewall config, the kill switch include must survive that
+if [ -z "$(uci -q get firewall.openclash_ks)" ]; then
+   uci -q set firewall.openclash_ks=include
+   uci -q set firewall.openclash_ks.type=script
+   uci -q set firewall.openclash_ks.path=$KILL_SWITCH
+   uci -q set firewall.openclash_ks.fw4_compatible=1
+   [ -n "$FW4" ] || uci -q set firewall.openclash_ks.reload=1
    uci -q commit firewall
 fi
 
@@ -2390,6 +2408,8 @@ revert_firewall()
    ip rule del fwmark "$PROXY_FWMARK" table "$PROXY_ROUTE_TABLE"
    ip route del local 0.0.0.0/0 dev lo table "$PROXY_ROUTE_TABLE"
    proxy_throw_route_del
+   ip route del blackhole default table "$PROXY_ROUTE_TABLE" metric 4096
+   ip -6 route del blackhole default table "$PROXY_ROUTE_TABLE" metric 4096
 
    ip -6 rule del fwmark "$PROXY_FWMARK" table "$PROXY_ROUTE_TABLE"
    ip -6 route del local ::/0 dev lo table "$PROXY_ROUTE_TABLE"
@@ -3255,6 +3275,12 @@ stop_service()
    get_config
 
    LOG_TIP "OpenClash Stoping..."
+   # restart, a failed start and a crash loop keep clients blocked; a plain stop is a user decision
+   if [ "$KS_HOLD" = "1" ]; then
+      $KILL_SWITCH hold
+   else
+      $KILL_SWITCH release
+   fi
    LOG_OUT "Step 1: Backup The Current Groups State..."
 
    {
@@ -3304,6 +3330,7 @@ restart()
    echo "OpenClash Restart..."
    LOG_TIP "OpenClash Restart..."
    check_run_quick
+   KS_HOLD=1
    stop_service
    start
 }
@@ -3385,17 +3412,20 @@ reload_service()
          exit 0
       fi
       LOG_OUT "【${CUR_RELOAD_NUM}/$MAX_RELOAD】Reload OpenClash Firewall Rules..."
+      $KILL_SWITCH hold
       revert_firewall
       do_run_mode
       check_core_status &
    fi
    if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "manual" ]; then
       LOG_OUT "Manually Reload Firewall Rules..."
+      $KILL_SWITCH hold
       revert_firewall
       do_run_mode
       check_core_status &
    fi
    if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "revert" ]; then
+      $KILL_SWITCH hold
       revert_firewall
    fi
    if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "restore" ]; then

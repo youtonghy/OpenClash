@@ -83,6 +83,7 @@ function index()
 	entry({"admin", "services", "openclash", "delete_overwrite_file"}, post("delete_overwrite_file")).leaf = true
 	entry({"admin", "services", "openclash", "theme_get"}, call("action_theme_get")).leaf = true
 	entry({"admin", "services", "openclash", "theme_save"}, post("action_theme_save")).leaf = true
+	entry({"admin", "services", "openclash", "kill_switch_action"}, post("kill_switch_action")).leaf = true
 	entry({"admin", "services", "openclash", "settings_get"}, call("settings_get")).leaf = true
 	entry({"admin", "services", "openclash", "settings_set"}, post("settings_set")).leaf = true
 	entry({"admin", "services", "openclash", "custom_file_get"}, call("custom_file_get")).leaf = true

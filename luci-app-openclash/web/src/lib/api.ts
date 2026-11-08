@@ -49,6 +49,9 @@ export const service = (action: 'start' | 'stop' | 'restart') => apiPost('action
 
 export type Status = {
   clash: boolean
+  core_running?: boolean
+  kill_switch?: boolean
+  kill_switch_state?: string
   daip?: string
   dase?: string
   cn_port?: string
@@ -65,7 +68,7 @@ export type Status = {
 
 export type ConfigFile = { name: string; path: string; size: number; mtime: number }
 
-export const isRunning = (status?: Status) => !!status?.clash && !!status?.daip
+export const isRunning = (status?: Status) => !!status?.core_running && !!status?.daip
 
 export function bytes(value: number, digits = 1): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB']

@@ -217,9 +217,12 @@ if [ -n "$CORE_JSON" ]; then
    # procd drops the respawn table once it gave up on the core (crash loop)
    if [ "$(echo "$CORE_JSON" | jsonfilter -e '@.openclash.instances.openclash.running')" != "true" ] \
       && [ -z "$(echo "$CORE_JSON" | jsonfilter -e '@.openclash.instances.openclash.respawn.retry')" ]; then
-      uci -q set openclash.config.enable=0
-      uci -q commit openclash
-      /etc/init.d/openclash stop >/dev/null 2>&1
+      if [ "$(uci -q get openclash.config.kill_switch)" = "0" ]; then
+         uci -q set openclash.config.enable=0
+         uci -q commit openclash
+      fi
+      LOG_WATCHDOG "Core Keeps Crashing, Stopping OpenClash..."
+      KS_HOLD=1 /etc/init.d/openclash stop >/dev/null 2>&1
       exit 0
    fi
 fi

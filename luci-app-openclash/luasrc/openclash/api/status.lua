@@ -380,6 +380,9 @@ function action_status()
 		metacubexd = fs.isdirectory("/usr/share/openclash/ui/metacubexd"),
 		zashboard = fs.isdirectory("/usr/share/openclash/ui/zashboard"),
 		core_type = fs.uci_get_config("config", "core_type") or "Meta",
+		core_running = is_running(),
+		kill_switch = uci:get("openclash", "config", "kill_switch") ~= "0",
+		kill_switch_state = (nixio.fs.readfile("/var/run/openclash_ks.state") or ""):gsub("%s+", ""),
 		-- run_mode
 		run_mode = mode(),
 		-- rule_mode

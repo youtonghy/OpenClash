@@ -12,6 +12,7 @@ local CUSTOM_FILES = {
 	firewall = "/etc/openclash/custom/openclash_custom_firewall_rules.sh",
 }
 local CUSTOM_FILE_MAX = 512 * 1024
+local KILL_SWITCH = "/usr/share/openclash/openclash_killswitch.sh >/dev/null 2>&1"
 
 local function reply(data, status)
 	if status then HTTP.status(status, data.error or "Error") end
@@ -50,7 +51,20 @@ function settings_set()
 	end
 
 	uci:commit("openclash")
+	if input.kill_switch ~= nil then
+		SYS.call(KILL_SWITCH)
+	end
 	reply({ ok = true })
+end
+
+-- Temporary escape hatch while the proxy is down, and the way back from it.
+function kill_switch_action()
+	local action = HTTP.formvalue("action")
+	if action ~= "bypass" and action ~= "resume" then
+		return reply({ error = "invalid action" }, 400)
+	end
+	SYS.call("/usr/share/openclash/openclash_killswitch.sh " .. action .. " >/dev/null 2>&1")
+	reply({ state = (nixio.fs.readfile("/var/run/openclash_ks.state") or ""):gsub("%s+", "") })
 end
 
 function custom_file_get()

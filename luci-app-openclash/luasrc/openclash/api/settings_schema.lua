@@ -16,6 +16,7 @@ return {
 	lan_ac_white_macs = "list",
 	wan_ac_black_ips = "list",
 	wan_ac_black_ports = "list",
+	kill_switch = "value",
 	router_self_proxy = "value",
 	disable_udp_quic = "value",
 	skip_proxy_address = "value",

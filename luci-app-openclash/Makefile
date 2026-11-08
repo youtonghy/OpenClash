@@ -83,6 +83,7 @@ endef
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 	[ -n "$(pidof clash)" ] && /etc/init.d/openclash stop 2>/dev/null
+	[ -x /usr/share/openclash/openclash_killswitch.sh ] && /usr/share/openclash/openclash_killswitch.sh off 2>/dev/null
 	# keep the upgrade copy on flash, /etc/openclash plus the dashboards do not fit in tmpfs on 512MB devices
 	if [ -f "/etc/config/openclash" ] && [ ! -d "/etc/.openclash-upgrade" ]; then
 		mkdir -p "/etc/.openclash-upgrade" >/dev/null 2>&1
@@ -121,6 +122,7 @@ define Package/$(PKG_NAME)/postrm
 	rm -f /etc/nginx/conf.d/openclash.locations >/dev/null 2>&1
 	[ -x /etc/init.d/nginx ] && /etc/init.d/nginx reload >/dev/null 2>&1
 	uci -q delete firewall.openclash
+	uci -q delete firewall.openclash_ks
 	uci -q commit firewall
 	[ -f "/etc/config/ucitrack" ] && {
 	uci -q delete ucitrack.@openclash[-1]
