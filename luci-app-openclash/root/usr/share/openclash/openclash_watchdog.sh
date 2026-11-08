@@ -86,11 +86,7 @@ begin
                      end
                   else
                      if file_is_age_encrypted
-                        if name == 'oixCloud'
-                           YAML.LOG('Set Proxies Address Skip: Bypass【oixCloud】')
-                        else
-                           YAML.LOG_WARN('Set Proxies Address Skip: Failed【' + path + '】File is AGE encrypted but no secret key provided')
-                        end
+                        YAML.LOG_WARN('Set Proxies Address Skip: Failed【' + path + '】File is AGE encrypted but no secret key provided')
                         next
                      end
                      provider_config = YAML.load_file(path)
@@ -202,25 +198,6 @@ do
    cfg_update=$(uci_get_config "auto_update")
    cfg_update_mode=$(uci_get_config "config_auto_update_mode")
    cfg_update_interval=$(uci_get_config "config_update_interval" || echo 60)
-   stream_auto_select=$(uci_get_config "stream_auto_select" || echo 0)
-   stream_auto_select_interval=$(uci_get_config "stream_auto_select_interval" || echo 30)
-   stream_auto_select_netflix=$(uci_get_config "stream_auto_select_netflix" || echo 0)
-   stream_auto_select_disney=$(uci_get_config "stream_auto_select_disney" || echo 0)
-   stream_auto_select_hbo_max=$(uci_get_config "stream_auto_select_hbo_max" || echo 0)
-   stream_auto_select_tvb_anywhere=$(uci_get_config "stream_auto_select_tvb_anywhere" || echo 0)
-   stream_auto_select_prime_video=$(uci_get_config "stream_auto_select_prime_video" || echo 0)
-   stream_auto_select_ytb=$(uci_get_config "stream_auto_select_ytb" || echo 0)
-   stream_auto_select_dazn=$(uci_get_config "stream_auto_select_dazn" || echo 0)
-   stream_auto_select_paramount_plus=$(uci_get_config "stream_auto_select_paramount_plus" || echo 0)
-   stream_auto_select_discovery_plus=$(uci_get_config "stream_auto_select_discovery_plus" || echo 0)
-   stream_auto_select_bilibili=$(uci_get_config "stream_auto_select_bilibili" || echo 0)
-   stream_auto_select_google_not_cn=$(uci_get_config "stream_auto_select_google_not_cn" || echo 0)
-   stream_auto_select_openai=$(uci_get_config "stream_auto_select_openai" || echo 0)
-   stream_auto_select_claude=$(uci_get_config "stream_auto_select_claude" || echo 0)
-   stream_auto_select_gemini=$(uci_get_config "stream_auto_select_gemini" || echo 0)
-   stream_auto_select_bahamut=$(uci_get_config "stream_auto_select_bahamut" || echo 0)
-   stream_auto_select_spotify=$(uci_get_config "stream_auto_select_spotify" || echo 0)
-   stream_auto_select_steam=$(uci_get_config "stream_auto_select_steam" || echo 0)
    upnp_lease_file=$(uci -q get upnpd.config.upnp_lease_file)
 
 #wait for core start complete
@@ -424,94 +401,12 @@ fi
       fi
    fi
 
-##Dler Cloud Checkin
-   /usr/share/openclash/openclash_oix_checkin.lua >/dev/null 2>&1
-
 ## 配置文件循环更新
    if [ "$cfg_update" -eq 1 ] && [ "$cfg_update_mode" -eq 1 ]; then
       if [ "$CFG_UPDATE_INT" -ne 0 ]; then
          [ "$(expr "$CFG_UPDATE_INT" % "$cfg_update_interval")" -eq 0 ] && /usr/share/openclash/openclash.sh
       fi
       CFG_UPDATE_INT=$(expr "$CFG_UPDATE_INT" + 1)
-   fi
-
-##STREAMING_UNLOCK_CHECK
-   if [ "$stream_auto_select" -eq 1 ] && [ "$router_self_proxy" -eq 1 ]; then
-      if [ "$STREAM_AUTO_SELECT" -ne 0 ]; then
-         if [ "$(expr "$STREAM_AUTO_SELECT" % "$stream_auto_select_interval")" -eq 0 ] || [ "$STREAM_AUTO_SELECT" -eq 1 ]; then
-            if [ "$stream_auto_select_netflix" -eq 1 ]; then
-               LOG_INFO "【Netflix】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Netflix" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_disney" -eq 1 ]; then
-               LOG_INFO "【Disney Plus】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Disney Plus" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_google_not_cn" -eq 1 ]; then
-               LOG_INFO "【Google Not CN】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Google" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_ytb" -eq 1 ]; then
-               LOG_INFO "【YouTube Premium】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "YouTube Premium" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_prime_video" -eq 1 ]; then
-               LOG_INFO "【Amazon Prime Video】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Amazon Prime Video" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_hbo_max" -eq 1 ]; then
-               LOG_INFO "【HBO Max】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "HBO Max" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_tvb_anywhere" -eq 1 ]; then
-               LOG_INFO "【TVB Anywhere+】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "TVB Anywhere+" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_dazn" -eq 1 ]; then
-               LOG_INFO "【DAZN】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "DAZN" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_paramount_plus" -eq 1 ]; then
-               LOG_INFO "【Paramount Plus】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Paramount Plus" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_discovery_plus" -eq 1 ]; then
-               LOG_INFO "【Discovery Plus】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Discovery Plus" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_bilibili" -eq 1 ]; then
-               LOG_INFO "【Bilibili】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Bilibili" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_openai" -eq 1 ]; then
-               LOG_INFO "【OpenAI】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "OpenAI" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_claude" -eq 1 ]; then
-               LOG_INFO "【Claude】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Claude" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_gemini" -eq 1 ]; then
-               LOG_INFO "【Gemini】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Gemini" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_bahamut" -eq 1 ]; then
-               LOG_INFO "【Bahamut Anime】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Bahamut Anime" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_spotify" -eq 1 ]; then
-               LOG_INFO "【Spotify】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Spotify" >> $LOG_FILE
-            fi
-            if [ "$stream_auto_select_steam" -eq 1 ]; then
-               LOG_INFO "【Steam】Start Auto Select Unlock Proxy..."
-               /usr/share/openclash/openclash_streaming_unlock.lua "Steam" >> $LOG_FILE
-            fi
-         fi
-      fi
-      STREAM_AUTO_SELECT=$(expr "$STREAM_AUTO_SELECT" + 1)
-   elif [ "$router_self_proxy" != "1" ] && [ "$stream_auto_select" -eq 1 ]; then
-      LOG_ERROR "Streaming Unlock Could not Work Because of Router-Self Proxy Disabled, Exiting..."
    fi
 
    sleep 60

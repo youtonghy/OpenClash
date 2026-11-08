@@ -100,7 +100,6 @@ jobs:
           CHNR6_PATH=tmp/${{ matrix.target.sdk_dir }}/package/luci-app-openclash/root/etc/openclash/china_ip6_route.ipset
           ZASHBOARD_PATH=tmp/${{ matrix.target.sdk_dir }}/package/luci-app-openclash/root/usr/share/openclash/ui/zashboard
           METACUBEXD_PATH=tmp/${{ matrix.target.sdk_dir }}/package/luci-app-openclash/root/usr/share/openclash/ui/metacubexd
-          GEOSITE_PATH=tmp/${{ matrix.target.sdk_dir }}/package/luci-app-openclash/root/etc/openclash/GeoSite.dat
           COUNTRY_MMDB_PATH=tmp/${{ matrix.target.sdk_dir }}/package/luci-app-openclash/root/etc/openclash/Country.mmdb
 
           # 更新 China IP Route
@@ -136,12 +135,6 @@ jobs:
           if [ -n "$TWEMOJI_FONT" ]; then
             cp "$TWEMOJI_FONT" "$FONTS_PATH/TwemojiMozilla-flags.woff2"
           fi
-
-          # 更新 GeoSite.dat
-          RULES_RELEASE=$(curl -s https://api.github.com/repos/Loyalsoldier/v2ray-rules-dat/releases/latest | jq -r '.tag_name')
-          curl -sSL "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/download/${RULES_RELEASE}/geosite.dat" -o tmp/GeoSite.dat
-          mkdir -p $(dirname "$GEOSITE_PATH")
-          cp tmp/GeoSite.dat "$GEOSITE_PATH"
 
           # 更新 Country.mmdb
           curl -sSL "https://github.com/alecthw/mmdb_china_ip_list/releases/latest/download/Country-lite.mmdb" -o tmp/Country.mmdb

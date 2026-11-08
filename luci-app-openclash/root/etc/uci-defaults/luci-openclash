@@ -172,58 +172,30 @@ cp -f "/etc/openclash/overwrite/default" "/usr/share/openclash/backup/overwrite/
 cp -f "/etc/openclash/rule_provider/oc-cn-domain.mrs" "/usr/share/openclash/backup/oc-cn-domain.mrs" >/dev/null 2>&1
 
 #Restore
-if [ -f "/tmp/openclash.bak" ]; then
-	#delete old geosite database first
-	if [ "/etc/openclash/GeoSite.dat" -nt "/tmp/openclash/GeoSite.dat" ]; then
-		rm -rf "/tmp/openclash/GeoSite.dat" >/dev/null 2>&1
-	fi
-	#delete error china_ip_route first
+OC_UPGRADE_DIR="/etc/.openclash-upgrade"
+if [ -f "$OC_UPGRADE_DIR/config" ]; then
+	#keep the chnroute lists shipped by this package when the saved ones have the wrong format
 	if [ -n "$FW4" ]; then
-		if [ -z "$(cat "/tmp/openclash/china_ip_route.ipset" |grep "define china_ip_route")" ]; then
-			rm -f "/tmp/openclash/china_ip_route.ipset" >/dev/null 2>&1
-			rm -f "/tmp/openclash/china_ip6_route.ipset" >/dev/null 2>&1
-		fi
+		grep -q "define china_ip_route" "$OC_UPGRADE_DIR/openclash/china_ip_route.ipset" 2>/dev/null || rm -f "$OC_UPGRADE_DIR/openclash/china_ip_route.ipset" "$OC_UPGRADE_DIR/openclash/china_ip6_route.ipset" >/dev/null 2>&1
 	else
-		if [ -z "$(cat "/tmp/openclash/china_ip_route.ipset" |grep "create china_ip_route")" ]; then
-			rm -f "/tmp/openclash/china_ip_route.ipset" >/dev/null 2>&1
-			rm -f "/tmp/openclash/china_ip6_route.ipset" >/dev/null 2>&1
-		fi
+		grep -q "create china_ip_route" "$OC_UPGRADE_DIR/openclash/china_ip_route.ipset" 2>/dev/null || rm -f "$OC_UPGRADE_DIR/openclash/china_ip_route.ipset" "$OC_UPGRADE_DIR/openclash/china_ip6_route.ipset" >/dev/null 2>&1
 	fi
-	mv -f "/tmp/openclash.bak" "/etc/config/openclash" >/dev/null 2>&1
-	cp -rf "/tmp/openclash/." "/etc/openclash/" >/dev/null 2>&1
-	#ui
-	if [ -d "/tmp/openclash_ui/" ]; then
-		if [ -d "/tmp/openclash_ui/metacubexd/" ] || [ -d "/tmp/openclash_ui/zashboard/" ] || [ -d "/tmp/openclash_ui/yacd/" ] || [ -d "/tmp/openclash_ui/dashboard/" ]; then
-			rm -rf "/usr/share/openclash/ui/" >/dev/null 2>&1
-			cp -rf "/tmp/openclash_ui/." "/usr/share/openclash/ui/" >/dev/null 2>&1
-		fi
-		rm -rf "/tmp/openclash_ui/" >/dev/null 2>&1
+	cp -f "$OC_UPGRADE_DIR/config" "/etc/config/openclash" >/dev/null 2>&1
+	cp -rf "$OC_UPGRADE_DIR/openclash/." "/etc/openclash/" >/dev/null 2>&1
+	if [ -d "$OC_UPGRADE_DIR/ui/metacubexd" ] || [ -d "$OC_UPGRADE_DIR/ui/zashboard" ]; then
+		rm -rf "/usr/share/openclash/ui/" >/dev/null 2>&1
+		cp -rf "$OC_UPGRADE_DIR/ui/." "/usr/share/openclash/ui/" >/dev/null 2>&1
 	fi
-	#pac
-	if [ -d "/tmp/pac/" ]; then
-		rm -rf "/www/luci-static/resources/openclash/pac/" >/dev/null 2>&1
-		cp -rf "/tmp/pac/." "/www/luci-static/resources/openclash/pac/" >/dev/null 2>&1
-		rm -rf "/tmp/pac/" >/dev/null 2>&1
-	fi
-	#oc-domain
-	if [ -f "/etc/openclash/rule_provider/oc-cn-domain.mrs" ]; then
+	if [ -f "/usr/share/openclash/backup/oc-cn-domain.mrs" ]; then
 		cp -f "/usr/share/openclash/backup/oc-cn-domain.mrs" "/etc/openclash/rule_provider/oc-cn-domain.mrs" >/dev/null 2>&1
 	fi
-	rm -rf "/etc/openclash/openclash" >/dev/null 2>&1
-	rm -rf "/tmp/openclash" >/dev/null 2>&1
-	rm -rf "/tmp/openclash.bak" >/dev/null 2>&1
-	#old version files
-	rm -rf "/etc/openclash/fake_filter.list" >/dev/null 2>&1
-	rm -rf "/etc/openclash/openclash_servers_fake_filter.conf" >/dev/null 2>&1
-	rm -rf "/etc/openclash/core/clash" >/dev/null 2>&1
-	rm -rf "/etc/openclash/core/clash_tun" >/dev/null 2>&1
-	rm -rf "/etc/openclash/accelerated-domains.china.conf" >/dev/null 2>&1
-	rm -rf "/etc/openclash/custom/openclash_force_sniffing_domain.yaml" >/dev/null 2>&1
-	rm -rf "/etc/openclash/custom/openclash_sniffing_ports_filter.yaml" >/dev/null 2>&1
-	rm -rf "/etc/openclash/custom/openclash_sniffing_port_filter.yaml" >/dev/null 2>&1
-	rm -rf "/etc/openclash/custom/openclash_sniffing_domain_filter.yaml" >/dev/null 2>&1
-	rm -rf "/etc/openclash/backup" >/dev/null 2>&1
+	rm -rf "$OC_UPGRADE_DIR" >/dev/null 2>&1
 fi
+
+#Settings dropped by the trimmed build
+uci -q set openclash.config.enable_redirect_dns=2
+[ "$(uci_get_config "log_level")" = "0" ] && uci -q set openclash.config.log_level=warning
+uci -q commit openclash
 
 #long-running requests (streaming log)
 #uhttpd backend (older LuCI)

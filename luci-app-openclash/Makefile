@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-openclash
-PKG_VERSION:=0.48.002
-PKG_MAINTAINER:=vernesong <https://github.com/vernesong/OpenClash>
+PKG_VERSION:=0.49.001
+PKG_MAINTAINER:=youtonghy <https://github.com/youtonghy/OpenClash>
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
 
@@ -44,7 +44,7 @@ define Package/$(PKG_NAME)
 	PKGARCH:=all
 	DEPENDS:=+dnsmasq-full +bash +curl +ca-bundle +ip-full \
 	+ruby +ruby-yaml +kmod-tun +unzip
-	MAINTAINER:=vernesong
+	MAINTAINER:=youtonghy
 endef
 
 define Package/$(PKG_NAME)/description
@@ -74,11 +74,12 @@ endef
 
 define Package/$(PKG_NAME)/preinst
 #!/bin/sh
-	if [ -f "/etc/config/openclash" ] && [ ! -f "/tmp/openclash.bak" ]; then
-		cp -f "/etc/config/openclash" "/tmp/openclash.bak" >/dev/null 2>&1
-		cp -rf "/etc/openclash" "/tmp/openclash" >/dev/null 2>&1
-		cp -rf "/usr/share/openclash/ui" "/tmp/openclash_ui" >/dev/null 2>&1
-		cp -rf "/www/luci-static/resources/openclash/pac" "/tmp/pac" >/dev/null 2>&1
+	# keep the upgrade copy on flash, /etc/openclash plus the dashboards do not fit in tmpfs on 512MB devices
+	if [ -f "/etc/config/openclash" ] && [ ! -d "/etc/.openclash-upgrade" ]; then
+		mkdir -p "/etc/.openclash-upgrade" >/dev/null 2>&1
+		cp -f "/etc/config/openclash" "/etc/.openclash-upgrade/config" >/dev/null 2>&1
+		cp -rf "/etc/openclash" "/etc/.openclash-upgrade/openclash" >/dev/null 2>&1
+		cp -rf "/usr/share/openclash/ui" "/etc/.openclash-upgrade/ui" >/dev/null 2>&1
 	fi
 	exit 0
 endef
@@ -91,11 +92,12 @@ endef
 define Package/$(PKG_NAME)/prerm
 #!/bin/sh
 	[ -n "$(pidof clash)" ] && /etc/init.d/openclash stop 2>/dev/null
-	if [ -f "/etc/config/openclash" ] && [ ! -f "/tmp/openclash.bak" ]; then
-		cp -f "/etc/config/openclash" "/tmp/openclash.bak" >/dev/null 2>&1
-		cp -rf "/etc/openclash" "/tmp/openclash" >/dev/null 2>&1
-		cp -rf "/usr/share/openclash/ui" "/tmp/openclash_ui" >/dev/null 2>&1
-		cp -rf "/www/luci-static/resources/openclash/pac" "/tmp/pac" >/dev/null 2>&1
+	# keep the upgrade copy on flash, /etc/openclash plus the dashboards do not fit in tmpfs on 512MB devices
+	if [ -f "/etc/config/openclash" ] && [ ! -d "/etc/.openclash-upgrade" ]; then
+		mkdir -p "/etc/.openclash-upgrade" >/dev/null 2>&1
+		cp -f "/etc/config/openclash" "/etc/.openclash-upgrade/config" >/dev/null 2>&1
+		cp -rf "/etc/openclash" "/etc/.openclash-upgrade/openclash" >/dev/null 2>&1
+		cp -rf "/usr/share/openclash/ui" "/etc/.openclash-upgrade/ui" >/dev/null 2>&1
 	fi
 	exit 0
 endef
@@ -124,7 +126,6 @@ define Package/$(PKG_NAME)/postrm
 	rm -rf /tmp/etc/openclash >/dev/null 2>&1
 	rm -rf /tmp/openclash_announcement >/dev/null 2>&1
 	rm -rf /www/luci-static/resources/openclash >/dev/null 2>&1
-	rm -rf /tmp/oix* >/dev/null 2>&1
 	rm -f /etc/nginx/conf.d/openclash.conf >/dev/null 2>&1
 	rm -f /etc/nginx/conf.d/openclash.locations >/dev/null 2>&1
 	[ -x /etc/init.d/nginx ] && /etc/init.d/nginx reload >/dev/null 2>&1

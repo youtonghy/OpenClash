@@ -41,13 +41,6 @@ urlencode() {
    fi
 }
 
-kill_streaming_unlock() {
-   streaming_unlock_pids=$(unify_ps_pids "openclash_streaming_unlock.lua")
-   for streaming_unlock_pid in $streaming_unlock_pids; do
-      kill -9 "$streaming_unlock_pid" >/dev/null 2>&1
-   done >/dev/null 2>&1
-}
-
 config_test()
 {
    if [ -f "$CLASH" ]; then
@@ -235,7 +228,6 @@ change_dns()
 config_download_direct()
 {
    if pidof clash >/dev/null && [ "$router_self_proxy" = 1 ]; then
-      kill_streaming_unlock
       procd_send_signal "openclash-watchdog" "" STOP
       /etc/init.d/openclash reload "revert" >/dev/null 2>&1
       sleep 3
@@ -433,31 +425,7 @@ sub_info_get()
       fi
    fi
 
-   if [ "$sub_convert" -eq 0 ]; then
-      subscribe_url=$address
-   elif [ "$sub_convert" -eq 1 ] && [ -n "$template" ]; then
-      while IFS= read -r line; do
-         line=$(echo "$line" | tr -d '\r')
-         subscribe_url=$([ -n "$subscribe_url" ] && echo "$subscribe_url|")$(urlencode "$line")
-      done < <(echo "$address")
-      if [ "$template" != "0" ]; then
-         template_path=$(grep "^$template," /usr/share/openclash/res/sub_ini.list |awk -F ',' '{print $3}' 2>/dev/null)
-      else
-         template_path=$custom_template_url
-      fi
-      if [ -n "$template_path" ]; then
-         config_list_foreach "$section" "custom_params" convert_custom_param
-         template_path_encode=$(urlencode "$template_path")
-         [ -n "$key_match_param" ] && key_match_param="$(urlencode "(?i)$key_match_param")"
-         [ -n "$key_ex_match_param" ] && key_ex_match_param="$(urlencode "(?i)$key_ex_match_param")"
-         subscribe_url_param="?target=clash&new_name=true&url=$subscribe_url&config=$template_path_encode&include=$key_match_param&exclude=$key_ex_match_param&emoji=$emoji&list=false&sort=$sort$udp&scv=$skip_cert_verify&append_type=$node_type&fdn=true$rule_provider$tfo$tls13$append_custom_params"
-         c_address="$convert_address"
-      else
-         subscribe_url=$address
-      fi
-   else
-      subscribe_url=$address
-   fi
+   subscribe_url=$address
 
    LOG_OUT "Start Updating Config File【$name】..."
 

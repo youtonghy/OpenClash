@@ -218,7 +218,6 @@ EOF
 }
 
 CHECKSUM_RAW_PREFIX="https://raw.githubusercontent.com/vernesong/OpenClash"
-CHECKSUM_OIX_URL="https://github.com/vernesong/mihomo-oix/releases/download/Pre-Alpha/checksums.txt"
 
 resolve_checksum_from_url() {
     local url="$1"
@@ -251,9 +250,6 @@ resolve_checksum_from_url() {
             path="${base#*OpenClash/}"
             [ "${path%/*}" = "$path" ] && return 1
             CHECKSUM_URL="${CHECKSUM_RAW_PREFIX}/${path%/*}/checksums.txt"
-            ;;
-        *"mihomo-oix/"*)
-            CHECKSUM_URL="$CHECKSUM_OIX_URL"
             ;;
         *)
             return 1

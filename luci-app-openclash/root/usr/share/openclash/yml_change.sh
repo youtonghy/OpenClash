@@ -7,19 +7,13 @@
 LOG_FILE="/tmp/openclash.log"
 CONFIG_FILE="$5"
 
-custom_fakeip_filter=$(uci_get_config "custom_fakeip_filter" || echo 0)
-custom_name_policy=$(uci_get_config "custom_name_policy" || echo 0)
-custom_proxy_server_policy=$(uci_get_config "custom_proxy_server_policy" || echo 0)
 custom_host=$(uci_get_config "custom_host" || echo 0)
 system_hostname=$(uci -q get system.@system[0].hostname 2>/dev/null)
 dnsmasq_domain=$(uci -q get dhcp.@dnsmasq[0].domain 2>/dev/null)
-enable_custom_dns=$(uci_get_config "enable_custom_dns" || echo 0)
-append_wan_dns=$(uci_get_config "append_wan_dns" || echo 0)
-custom_fallback_filter=$(uci_get_config "custom_fallback_filter" || echo 0)
 china_ip_route=$(uci_get_config "china_ip_route" || echo 0)
 china_ip6_route=$(uci_get_config "china_ip6_route" || echo 0)
 china_ip_route_domain_source=$(uci_get_config "china_ip_route_domain_source" || echo "mrs")
-enable_redirect_dns=$(uci_get_config "enable_redirect_dns" || echo 1)
+enable_redirect_dns=2
 fake_ip_filter_mode="${33}"
 [ -z "$fake_ip_filter_mode" ] && fake_ip_filter_mode="blacklist"
 default_dashboard=$(uci_get_config "default_dashboard" || echo "metacubexd")
@@ -43,34 +37,6 @@ else
    stack_type=${12}
 fi
 
-if [ "$1" = "fake-ip" ] && [ "$enable_redirect_dns" != "2" ]; then
-   TMP_FILTER_FILE="/tmp/yaml_openclash_fake_filter_include"
-   > "$TMP_FILTER_FILE"
-
-   process_pass_list() {
-      [ ! -f "$1" ] && return
-      awk '
-         !/^$/ && !/^#/ {
-            # 跳过IPv4和IPv6地址
-            if ($0 ~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(\/[0-9]+)?$/ || $0 ~ /:/) {
-               next
-            }
-            sub(/^[\+\*\.]+/, "", $0)
-            if ($0 != "") {
-               print $0
-            }
-         }
-      ' "$1" >> "$TMP_FILTER_FILE" 2>/dev/null
-   }
-
-   if [ "$china_ip_route" != "0" ]; then
-      process_pass_list "/etc/openclash/custom/openclash_custom_chnroute_pass.list"
-   fi
-   if [ "$china_ip6_route" != "0" ]; then
-      process_pass_list "/etc/openclash/custom/openclash_custom_chnroute6_pass.list"
-   fi
-fi
-
 # 获取认证信息
 yml_auth_get()
 {
@@ -87,231 +53,13 @@ yml_auth_get()
    if [ -z "$username" ] || [ -z "$password" ]; then
       return
    else
-      LOG_TIP "You have seted the authentication of SOCKS5/HTTP(S) proxy with【$username:$password】..."
+      LOG_TIP "You have seted the authentication of SOCKS5/HTTP(S) proxy with user【$username】..."
       echo "  - $username:$password" >>/tmp/yaml_openclash_auth
    fi
 }
 
-# 添加自定义DNS设置
-yml_dns_custom()
-{
-   if [ "$1" = 1 ] || [ "$3" = 1 ]; then
-      sys_dns_append "$3" "$4"
-      config_foreach yml_dns_get "dns_servers" "$2"
-   fi
-}
-
-# 获取DHCP或接口的DNS并追加
-sys_dns_append()
-{
-   if [ "$1" = 1 ]; then
-      wan_dns=$(/usr/share/openclash/openclash_get_network.lua "dns")
-      wan6_dns=$(/usr/share/openclash/openclash_get_network.lua "dns6")
-      wan_gate=$(/usr/share/openclash/openclash_get_network.lua "gateway")
-      wan6_gate=$(/usr/share/openclash/openclash_get_network.lua "gateway6")
-      dhcp_iface=$(/usr/share/openclash/openclash_get_network.lua "dhcp")
-      pppoe_iface=$(/usr/share/openclash/openclash_get_network.lua "pppoe")
-      if [ -z "$dhcp_iface" ] && [ -z "$pppoe_iface" ]; then
-         if [ -n "$wan_dns" ]; then
-            for i in $wan_dns; do
-               echo "    - \"$i\"" >>/tmp/yaml_config.namedns.yaml
-            done
-         fi
-         if [ -n "$wan6_dns" ] && [ "$2" = 1 ]; then
-            for i in $wan6_dns; do
-               echo "    - \"[${i}]:53\"" >>/tmp/yaml_config.namedns.yaml
-            done
-         fi
-         if [ -n "$wan_gate" ]; then
-            for i in $wan_gate; do
-                echo "    - \"$i\"" >>/tmp/yaml_config.namedns.yaml
-            done
-         fi
-         if [ -n "$wan6_gate" ] && [ "$2" = 1 ]; then
-            for i in $wan6_gate; do
-               echo "    - \"[${i}]:53\"" >>/tmp/yaml_config.namedns.yaml
-            done
-         fi
-      else
-         if [ -n "$dhcp_iface" ]; then
-            for i in $dhcp_iface; do
-               echo "    - dhcp://\"$i\"" >>/tmp/yaml_config.namedns.yaml
-            done
-            if [ -n "$wan_gate" ]; then
-               for i in $wan_gate; do
-                   echo "    - \"$i\"" >>/tmp/yaml_config.namedns.yaml
-               done
-            fi
-            if [ -n "$wan6_gate" ] && [ "$2" = 1 ]; then
-               for i in $wan6_gate; do
-                  echo "    - \"[${i}]:53\"" >>/tmp/yaml_config.namedns.yaml
-               done
-            fi
-         fi
-         if [ -n "$pppoe_iface" ]; then
-            if [ -n "$wan_dns" ]; then
-                   for i in $wan_dns; do
-                      echo "    - \"$i\"" >>/tmp/yaml_config.namedns.yaml
-                   done
-               fi
-               if [ -n "$wan6_dns" ] && [ "$2" = 1 ]; then
-                  for i in $wan6_dns; do
-                     echo "    - \"[${i}]:53\"" >>/tmp/yaml_config.namedns.yaml
-                  done
-               fi
-         fi
-      fi
-      if [ -f "/tmp/yaml_config.namedns.yaml" ] && [ -z "$(grep "^ \{0,\}nameserver:$" /tmp/yaml_config.namedns.yaml 2>/dev/null)" ]; then
-         sed -i '1i\  nameserver:'  "/tmp/yaml_config.namedns.yaml"
-      fi
-   fi
-}
-
-PROXY_GROUPS=$(ruby -ryaml -rYAML -I "/usr/share/openclash" -E UTF-8 -e "
-   begin
-      Value = YAML.load_file_cached('$CONFIG_FILE', '/tmp/yaml_change_marshal')
-      if Value.key?('proxy-groups') && Value['proxy-groups'].is_a?(Array)
-         Value['proxy-groups'].each { |x| puts x['name'] if x.key?('name') }
-      end
-   rescue Exception => e
-      YAML.LOG_ERROR('proxy-groups Get Failed,【%s】' % [e.message])
-   end
-" 2>/dev/null)
-
-set_disable_qtype()
-{
-   if [ -z "$1" ]; then
-      return
-   fi
-   [ -z "$disable_qtype_param" ] && disable_qtype_param="disable-qtype-$1=true" || disable_qtype_param="$disable_qtype_param&disable-qtype-$1=true"
-}
-
-yml_dns_get()
-{
-   local section="$1" regex='^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$'
-   local enabled port type ip group dns_type dns_address interface specific_group node_resolve direct_nameserver http3 skip_cert_verify ecs_subnet ecs_override disable_qtype_param disable_qtype disable_ipv4 disable_ipv6 disable_reuse
-
-   config_get_bool "enabled" "$section" "enabled" "1"
-   [ "$enabled" = "0" ] && return
-
-   config_get "ip" "$section" "ip" ""
-   [ -z "$ip" ] && return
-
-   config_get "port" "$section" "port" ""
-   config_get "type" "$section" "type" ""
-   config_get "group" "$section" "group" ""
-   config_get "interface" "$section" "interface" ""
-   config_get "specific_group" "$section" "specific_group" ""
-   config_get_bool "node_resolve" "$section" "node_resolve" "0"
-   config_get_bool "direct_nameserver" "$section" "direct_nameserver" "0"
-   config_get_bool "http3" "$section" "http3" "0"
-   config_get_bool "skip_cert_verify" "$section" "skip_cert_verify" "0"
-   config_get_bool "ecs_override" "$section" "ecs_override" "0"
-   config_get "ecs_subnet" "$section" "ecs_subnet" ""
-   config_get_bool "disable_ipv4" "$section" "disable_ipv4" "0"
-   config_get_bool "disable_ipv6" "$section" "disable_ipv6" "0"
-   config_get_bool "disable_reuse" "$section" "disable_reuse" "0"
-   config_list_foreach "$section" "disable_qtype" set_disable_qtype
-
-   if [[ "$ip" =~ "$regex" ]] || [ -n "$(echo "${ip}" | grep -Eo "${regex}")" ]; then
-      ip="[${ip}]"
-   fi
-
-   case "$type" in
-      "tcp") dns_type="tcp://" ;;
-      "tls") dns_type="tls://" ;;
-      "udp") dns_type="" ;;
-      "https") dns_type="https://" ;;
-      "quic") dns_type="quic://" ;;
-      *) dns_type="" ;;
-   esac
-
-   if [ -n "$port" ]; then
-      if [ "${ip%%/*}" != "${ip#*/}" ]; then
-         dns_address="${ip%%/*}:$port/${ip#*/}"
-      else
-         dns_address="$ip:$port"
-      fi
-   else
-      dns_address="$ip"
-   fi
-
-   if [ "$specific_group" != "Disable" ] && [ -n "$specific_group" ]; then
-      group_check=$(echo "$PROXY_GROUPS" | grep -F -w -m 1 "$specific_group")
-      [ -n "$group_check" ] && specific_group_param="$group_check" || specific_group_param=""
-   else
-      specific_group_param=""
-   fi
-
-   [ "$interface" != "Disable" ] && [ -n "$interface" ] && interface_param="$interface" || interface_param=""
-   [ "$http3" = "1" ] && http3_param="h3=true" || http3_param=""
-   [ "$skip_cert_verify" = "1" ] && skip_cert_verify_param="skip-cert-verify=true" || skip_cert_verify_param=""
-   [ -n "$ecs_subnet" ] && ecs_subnet_param="ecs=$ecs_subnet" || ecs_subnet_param=""
-   [ "$ecs_override" = "1" ] && [ -n "$ecs_subnet_param" ] && ecs_override_param="ecs-override=true" || ecs_override_param=""
-   [ "$disable_ipv4" = "1" ] && disable_ipv4_param="disable-ipv4=true" || disable_ipv4_param=""
-   [ "$disable_ipv6" = "1" ] && disable_ipv6_param="disable-ipv6=true" || disable_ipv6_param=""
-   [ "$disable_reuse" = "1" ] && disable_reuse_param="disable-reuse=true" || disable_reuse_param=""
-
-   params=""
-   append_param() {
-      if [ -n "$1" ]; then
-         [ -z "$params" ] && params="#" || params="$params&"
-         params="$params$1"
-      fi
-   }
-
-   append_param "$specific_group_param"
-   append_param "$interface_param"
-   append_param "$http3_param"
-   append_param "$skip_cert_verify_param"
-   append_param "$ecs_subnet_param"
-   append_param "$ecs_override_param"
-   append_param "$disable_ipv4_param"
-   append_param "$disable_ipv6_param"
-   append_param "$disable_qtype_param"
-   append_param "$disable_reuse_param"
-
-   full_dns_address="$dns_type$dns_address$params"
-
-   if [ "$node_resolve" = "1" ]; then
-      if ! grep -q "^ \{0,\}proxy-server-nameserver:$" /tmp/yaml_config.proxynamedns.yaml 2>/dev/null; then
-         echo "  proxy-server-nameserver:" >/tmp/yaml_config.proxynamedns.yaml
-      fi
-      echo "    - \"$full_dns_address\"" >>/tmp/yaml_config.proxynamedns.yaml
-   fi
-
-   if [ "$direct_nameserver" = "1" ]; then
-      if ! grep -q "^ \{0,\}direct-nameserver:$" /tmp/yaml_config.directnamedns.yaml 2>/dev/null; then
-         echo "  direct-nameserver:" >/tmp/yaml_config.directnamedns.yaml
-      fi
-      echo "    - \"$full_dns_address\"" >>/tmp/yaml_config.directnamedns.yaml
-   fi
-
-   case "$group" in
-      "nameserver")
-         if ! grep -q "^ \{0,\}nameserver:$" /tmp/yaml_config.namedns.yaml 2>/dev/null; then
-            echo "  nameserver:" >/tmp/yaml_config.namedns.yaml
-         fi
-         echo "    - \"$full_dns_address\"" >>/tmp/yaml_config.namedns.yaml
-         ;;
-      "fallback")
-         if ! grep -q "^ \{0,\}fallback:$" /tmp/yaml_config.falldns.yaml 2>/dev/null; then
-            echo "  fallback:" >/tmp/yaml_config.falldns.yaml
-         fi
-         echo "    - \"$full_dns_address\"" >>/tmp/yaml_config.falldns.yaml
-         ;;
-      "default")
-         if ! grep -q "^ \{0,\}default-nameserver:$" /tmp/yaml_config.defaultdns.yaml 2>/dev/null; then
-            echo "  default-nameserver:" >/tmp/yaml_config.defaultdns.yaml
-         fi
-         echo "    - \"$full_dns_address\"" >>/tmp/yaml_config.defaultdns.yaml
-         ;;
-   esac
-}
-
 config_load "openclash"
 config_foreach yml_auth_get "authentication"
-yml_dns_custom "$enable_custom_dns" "$5" "$append_wan_dns" "${16}"
 
 OPENCLASH_CORS_DOMAIN="${36}" \
 OPENCLASH_CORS_PORT="$dashboard_forward_port" \
@@ -436,11 +184,6 @@ begin
    geoip_custom_url = '${38}'
    geosite_custom_url = '${39}'
    geoasn_custom_url = '${40}'
-   lgbm_auto_update = '${41}' == '1'
-   lgbm_custom_url = '${42}'
-   lgbm_update_interval = '${43}'
-   smart_collect = '${44}' == '1'
-   smart_collect_size = '${45}'
    fake_ip_range6 = '${46}'
    fake_ip_range6_enable = '${47}' == '1'
    global_ua = '${48}'
@@ -448,14 +191,9 @@ begin
    yacd_type = '$yacd_type'
    dashboard_type = '$dashboard_type'
 
-   enable_custom_dns = '$enable_custom_dns' == '1'
-   append_wan_dns = '$append_wan_dns' == '1'
-   custom_fakeip_filter = '$custom_fakeip_filter' == '1'
    china_ip_route = '$china_ip_route' != '0'
    china_ip6_route = '$china_ip6_route' != '0'
    china_ip_route_domain_source = '$china_ip_route_domain_source'
-   custom_name_policy = '$custom_name_policy' == '1'
-   custom_proxy_server_policy = '$custom_proxy_server_policy' == '1'
    custom_host = '$custom_host' == '1'
    enable_redirect_dns = '$enable_redirect_dns'
 
@@ -512,16 +250,6 @@ begin
          if cors_origin
             (Value['external-controller-cors'] ||= {})['allow-origins'] = [cors_origin]
             Value['external-controller-cors']['allow-private-network'] = true
-         end
-
-         Value['lgbm-auto-update'] = true if lgbm_auto_update
-         if lgbm_auto_update
-            Value['lgbm-url'] = lgbm_custom_url.strip
-            Value['lgbm-update-interval'] = lgbm_update_interval.to_i
-         end
-
-         if smart_collect
-            (Value['profile'] ||= {})['smart-collector-size'] = smart_collect_size.to_f
          end
 
          Value['geox-url'] ||= {}
@@ -610,31 +338,6 @@ begin
 
    threads << YAML::Inline.new do
       begin
-         if enable_custom_dns || append_wan_dns
-            if (namedns_config = safe_load_yaml('/tmp/yaml_config.namedns.yaml')) && namedns_config['nameserver']
-               if enable_custom_dns
-                  Value['dns']['nameserver'] = namedns_config['nameserver'].uniq
-               elsif append_wan_dns
-                  (Value['dns']['nameserver'] ||= []).concat(namedns_config['nameserver']).uniq!
-               end
-
-               if enable_custom_dns && (falldns_config = safe_load_yaml('/tmp/yaml_config.falldns.yaml')) && falldns_config['fallback']
-                  Value['dns']['fallback'] = falldns_config['fallback'].uniq
-               end
-            elsif enable_custom_dns
-               YAML.LOG_ERROR('Nameserver Option Must Be Setted, Stop Customing DNS Servers')
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set Custom DNS Failed,【%s】' % [e.message])
-      end
-
-      begin
-         if enable_custom_dns
-            if (defaultdns_config = safe_load_yaml('/tmp/yaml_config.defaultdns.yaml')) && defaultdns_config['default-nameserver']
-               Value['dns']['default-nameserver'] = defaultdns_config['default-nameserver'].uniq
-            end
-         end
          if add_default_from_dns
             reg = /^dhcp:\/\/|^system($|:\/\/)|([0-9a-zA-Z-]{1,}\.)+([a-zA-Z]{2,})/
             servers_to_check = Value.dig('dns', 'nameserver').to_a | Value.dig('dns', 'fallback').to_a
@@ -647,153 +350,6 @@ begin
          YAML.LOG_ERROR('Set default-nameserver Failed,【%s】' % [e.message])
       end
 
-      begin
-         if '$custom_fallback_filter' == '1'
-            if !Value.dig('dns', 'fallback')
-               YAML.LOG_ERROR('Fallback-Filter Need fallback of DNS Been Setted, Ignore...')
-            elsif (filter_config = safe_load_yaml('/etc/openclash/custom/openclash_custom_fallback_filter.yaml'))
-               Value['dns']['fallback-filter'] = filter_config['fallback-filter']
-            else
-               YAML.LOG_ERROR('Unable To Parse Custom Fallback-Filter File, Ignore...')
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set fallback-filter Failed,【%s】' % [e.message])
-      end
-   end
-
-   # proxy-server-nameserver
-   threads << YAML::Inline.new do
-      begin
-         if enable_custom_dns
-            if (proxydns = safe_load_yaml('/tmp/yaml_config.proxynamedns.yaml')) && proxydns['proxy-server-nameserver']
-               (Value['dns']['proxy-server-nameserver'] ||= []).concat(proxydns['proxy-server-nameserver']).uniq!
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set proxy-server-nameserver Failed,【%s】' % [e.message])
-      end
-   end
-
-   # direct-nameserver
-   threads << YAML::Inline.new do
-      begin
-         if enable_custom_dns
-            if (directdns = safe_load_yaml('/tmp/yaml_config.directnamedns.yaml')) && directdns['direct-nameserver']
-               (Value['dns']['direct-nameserver'] ||= []).concat(directdns['direct-nameserver']).uniq!
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set direct-nameserver Failed,【%s】' % [e.message])
-      end
-   end
-
-   # nameserver-policy
-   threads << YAML::Inline.new do
-      begin
-         if custom_name_policy
-            if (policy = safe_load_yaml('/etc/openclash/custom/openclash_custom_domain_dns_policy.list'))
-               (Value['dns']['nameserver-policy'] ||= {}).merge!(policy)
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set Nameserver-Policy Failed,【%s】' % [e.message])
-      end
-   end
-
-   # proxy-server-nameserver-policy
-   threads << YAML::Inline.new do
-      begin
-         if custom_proxy_server_policy
-            if (policy = safe_load_yaml('/etc/openclash/custom/openclash_custom_proxy_server_dns_policy.list'))
-               (Value['dns']['proxy-server-nameserver-policy'] ||= {}).merge!(policy)
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set Proxy-Server-Nameserver-Policy Failed,【%s】' % [e.message])
-      end
-   end
-
-   # Fake-IP Filter
-   threads << YAML::Inline.new do
-      begin
-         if custom_fakeip_filter
-            Value['dns']['fake-ip-filter-mode'] = fake_ip_filter_mode
-            if fake_ip_mode == 'fake-ip'
-               merge_list_from_file(Value['dns'], 'fake-ip-filter', '/etc/openclash/custom/openclash_custom_fake_filter.list')
-            end
-         end
-         # Set chnroute_pass domains
-         if fake_ip_mode == 'fake-ip' && enable_redirect_dns != '2' && File.exist?('/tmp/yaml_openclash_fake_filter_include')
-            pass_domains = File.readlines('/tmp/yaml_openclash_fake_filter_include').map { |l| l.gsub(/#.*$/, '').strip }.reject(&:empty?).uniq
-            if pass_domains.any?
-               filter_mode = Value.dig('dns', 'fake-ip-filter-mode')
-               if filter_mode == 'whitelist'
-                  filters = Value.dig('dns', 'fake-ip-filter')
-                  if filters.is_a?(Array)
-                     deleted_filters = filters.select { |f| pass_domains.any? { |d| f.to_s.include?(d) } }
-                     if deleted_filters.any?
-                        Value['dns']['fake-ip-filter'] -= deleted_filters
-                        deleted_filters.each do |f|
-                           YAML.LOG_TIP('Because Need Ensure Bypassing IP Option Work, Deleted The Fake-IP-Filter Rule【%s】...' % [f])
-                        end
-                     end
-                  end
-               else
-                  filter_rules = filter_mode == 'rule' ? pass_domains.map { |d| 'DOMAIN-SUFFIX,' + d + ',real-ip' } : pass_domains.map { |d| '+.' + d }
-                  (Value['dns']['fake-ip-filter'] ||= []).unshift(*filter_rules).uniq!
-                  YAML.LOG_TIP('Because Need Ensure Bypassing IP Option Work, Added The Fake-IP-Filter Rule【%s】...' % [filter_rules.join(', ')])
-               end
-            end
-         end
-         if fake_ip_mode == 'fake-ip' && (china_ip_route || china_ip6_route)
-            filter_mode = Value.dig('dns', 'fake-ip-filter-mode')
-            if filter_mode == 'blacklist' || filter_mode.nil?
-               filter_rule = china_ip_route_domain_source == 'geosite' ? 'geosite:cn' : 'rule-set:oc-cn-domain'
-               (Value['dns']['fake-ip-filter'] ||= []) << filter_rule
-            end
-            if filter_mode == 'whitelist'
-               filters = Value.dig('dns', 'fake-ip-filter') || []
-               deleted_filters = filters.select { |f| f =~ /(geosite:?|rule-set:?).*(@cn|:cn|,cn|:china)/i }
-               if deleted_filters.any?
-                  Value['dns']['fake-ip-filter'] -= deleted_filters
-                  deleted_filters.each do |f|
-                     YAML.LOG_TIP('Because Need Ensure Bypassing IP Option Work, Deleted The Fake-IP-Filter Rule【%s】...' % [f])
-                  end
-               end
-            end
-            if filter_mode == 'rule'
-               filter_rule = china_ip_route_domain_source == 'geosite' ? 'GEOSITE,cn,real-ip' : 'RULE-SET,oc-cn-domain,real-ip'
-               (Value['dns']['fake-ip-filter'] ||= []).unshift(filter_rule)
-            end
-            filters = Value.dig('dns', 'fake-ip-filter')
-            filters.uniq! if filters.is_a?(Array)
-            if filter_mode != 'whitelist'
-               if china_ip_route_domain_source == 'mrs'
-                  rule_set_hash = {'rule-providers+'=>{'oc-cn-domain'=>{'type'=>'http', 'interval'=>43200, 'behavior'=>'domain', 'format'=>'mrs', 'url'=>'https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/meta/geo/geosite/cn.mrs', 'path'=> './rule_provider/oc-cn-domain.mrs'}}}
-                  Value = YAML.overwrite(Value, rule_set_hash)
-               end
-               YAML.LOG_TIP('Because Need Ensure Bypassing IP Option Work, Added The Fake-IP-Filter Rule【%s】...' % [filter_rule])
-            end
-         end
-         if fake_ip_mode == 'fake-ip'
-            cn_domain_provider_ready = (china_ip_route || china_ip6_route) && filter_mode != 'whitelist' && china_ip_route_domain_source == 'mrs'
-            unless cn_domain_provider_ready || Value.dig('rule-providers', 'oc-cn-domain')
-               dangling_filters = Value.dig('dns', 'fake-ip-filter')
-               if dangling_filters.is_a?(Array)
-                  dangling_filters = dangling_filters.select { |f| f.to_s.strip.match?(/\A(rule-set:oc-cn-domain|RULE-SET,oc-cn-domain,real-ip)\z/i) }
-                  if dangling_filters.any?
-                     Value['dns']['fake-ip-filter'] -= dangling_filters
-                     dangling_filters.each do |f|
-                        YAML.LOG_WARN('Rule-Provider【oc-cn-domain】Is Not Registered, Deleted The Fake-IP-Filter Rule【%s】to Avoid Core Start Failed...' % [f])
-                     end
-                  end
-               end
-            end
-         end
-      rescue Exception => e
-         YAML.LOG_ERROR('Set Fake-IP-Filter Failed,【%s】' % [e.message])
-      end
    end
 
    # Custom Hosts

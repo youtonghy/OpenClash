@@ -78,15 +78,6 @@ add_cron()
    [ -z "$(grep "openclash.sh" "$CRON_FILE" 2>/dev/null)" ] && {
       [ "$(uci_get_config "auto_update")" -eq 1 ] && [ "$(uci_get_config "config_auto_update_mode")" -ne 1 ] && echo "0 $(uci_get_config "auto_update_time" || 1) * * $(uci_get_config "config_update_week_time" || 0) /usr/share/openclash/openclash.sh #openclash-cron-task" >> $CRON_FILE
    }
-   [ -z "$(grep "openclash_geo.sh" "$CRON_FILE" 2>/dev/null)" ] && {
-      [ "$(uci_get_config "geo_auto_update")" -eq 1 ] && echo "0 $(uci_get_config "geo_update_day_time" || 1) * * $(uci_get_config "geo_update_week_time" || 0) /usr/share/openclash/openclash_geo.sh ipdb #openclash-cron-task" >> $CRON_FILE
-      [ "$(uci_get_config "geosite_auto_update")" -eq 1 ] && echo "0 $(uci_get_config "geosite_update_day_time" || 1) * * $(uci_get_config "geosite_update_week_time" || 0) /usr/share/openclash/openclash_geo.sh geosite #openclash-cron-task" >> $CRON_FILE
-      [ "$(uci_get_config "geoip_auto_update")" -eq 1 ] && echo "0 $(uci_get_config "geoip_update_day_time" || 1) * * $(uci_get_config "geoip_update_week_time" || 0) /usr/share/openclash/openclash_geo.sh geoip #openclash-cron-task" >> $CRON_FILE
-      [ "$(uci_get_config "geoasn_auto_update")" -eq 1 ] && echo "0 $(uci_get_config "geoasn_update_day_time" || 1) * * $(uci_get_config "geoasn_update_week_time" || 0) /usr/share/openclash/openclash_geo.sh geoasn #openclash-cron-task" >> $CRON_FILE
-   }
-   [ -z "$(grep "openclash_chnroute.sh" "$CRON_FILE" 2>/dev/null)" ] && {
-      [ "$(uci_get_config "chnr_auto_update")" -eq 1 ] && echo "0 $(uci_get_config "chnr_update_day_time" || 1) * * $(uci_get_config "chnr_update_week_time" || 0) /usr/share/openclash/openclash_chnroute.sh #openclash-cron-task" >> $CRON_FILE
-   }
    [ -z "$(grep -E "dispatch_restart #openclash-cron-task|/etc/init.d/openclash restart #openclash-cron-task" "$CRON_FILE" 2>/dev/null)" ] && {
       [ "$(uci_get_config "auto_restart")" -eq 1 ] && echo "0 $(uci_get_config "auto_restart_day_time" || 1) * * $(uci_get_config "auto_restart_week_time" || 0) /etc/init.d/openclash restart #openclash-cron-task" >> $CRON_FILE
    }
@@ -104,267 +95,6 @@ del_cron()
    # restarting crond would cgroup-kill every running cron job, including the
    # caller of a cron triggered stop, crontab only makes crond reload the file
    crontab $CRON_FILE
-} >/dev/null 2>&1
-
-save_dnsmasq_server() {
-   if [ -z "$1" ] || [ "$1" == "127.0.0.1#${dns_port}" ]; then
-     return
-   fi
-
-   uci -q add_list openclash.config.dnsmasq_server="$1"
-}
-
-set_dnsmasq_server() {
-   if [ -z "$1" ] || [ "$1" == "127.0.0.1#${dns_port}" ]; then
-     return
-   fi
-
-   uci -q add_list dhcp.@dnsmasq[0].server="$1"
-}
-
-load_ip_route_pass() {
-   local settype nftflag
-   if dnsmasq --version | grep -q 'Compile time options:.* nftset'; then
-      settype="nftset"
-      nftflag="inet#fw4#"
-   else
-      settype="ipset"
-      [ -n "$FW4" ] && LOG_WARN "Dnsmasq not Support nftset, Use ipset..."
-   fi
-   if [ -n "$FW4" ]; then
-      if [ "$china_ip_route" != "0" ] || [ "$disable_udp_quic" = "1" ]; then
-         if [ "$enable_redirect_dns" != "2" ]; then
-            mkdir -p ${DNSMASQ_CONF_DIR}
-            if [ "$settype" = "nftset" ]; then
-               nft add set inet fw4 china_ip_route_pass '{ type ipv4_addr; flags interval; auto-merge; }'
-            else
-               ipset -! create china_ip_route_pass hash:net family inet hashsize 1024 maxelem 1000000
-            fi
-            awk '!/^$/&&!/^#/&&!/(^([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){2}([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4])((\/[0-9][0-9])?)$/{printf("'${settype}'=/%s/'${nftflag}'china_ip_route_pass'" "'\n",$0)}' /etc/openclash/custom/openclash_custom_chnroute_pass.list >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-            for ip in $(uci_get_config "china_ip_route_pass"); do
-               [ -z "$ip" ] && continue
-               echo "$ip" | awk '!/^$/&&!/^#/&&!/(^([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){2}([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4])((\/[0-9][0-9])?)$/{printf("'${settype}'=/%s/'${nftflag}'china_ip_route_pass'" "'\n",$0)}'
-            done >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-         fi
-      fi
-
-      if [ "$ipv6_enable" -eq 1 ]; then
-         if [ "$china_ip6_route" != "0" ] || [ "$disable_udp_quic" = "1" ]; then
-            if [ "$enable_redirect_dns" != "2" ]; then
-               mkdir -p ${DNSMASQ_CONF_DIR}
-               if [ "$settype" = "nftset" ]; then
-                  nft add set inet fw4 china_ip6_route_pass '{ type ipv6_addr; flags interval; auto-merge; }'
-               else
-                  ipset -! create china_ip6_route_pass hash:net family inet6 hashsize 1024 maxelem 1000000
-               fi
-               awk '!/^$/&&!/^#/&&/([0-9a-zA-Z-]{1,}\.)+([a-zA-Z]{2,})/{printf("'${settype}'=/%s/'${nftflag}'china_ip_route_pass'" "'\n",$0)}' /etc/openclash/custom/openclash_custom_chnroute6_pass.list >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               for ip in $(uci_get_config "china_ip6_route_pass"); do
-                  [ -z "$ip" ] && continue
-                  echo "$ip" | awk '!/^$/&&!/^#/&&/([0-9a-zA-Z-]{1,}\.)+([a-zA-Z]{2,})/{printf("'${settype}'=/%s/'${nftflag}'china_ip_route_pass'" "'\n",$0)}'
-               done >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               #Prevent domain repeat
-               for i in `grep -wf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf`
-               do
-                  if [ -n "$nftflag" ]; then
-                     sed -i "s:${i}:${i},6#${nftflag}china_ip6_route_pass:g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-                  else
-                     sed -i "s:${i}:${i},china_ip6_route_pass:g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-                  fi
-                  sed -i 's:'$i':EXCLUSIVE:;/EXCLUSIVE/d' ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               done
-               if [ -n "$nftflag" ]; then
-                  sed -i "s/\/${nftflag}/\/4#${nftflag}/g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-                  sed -i "s/${nftflag}china_ip_route_pass/6#${nftflag}china_ip6_route_pass/g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               else
-                  sed -i "s/china_ip_route_pass/china_ip6_route_pass/g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               fi
-            fi
-         fi
-      fi
-   else
-      if [ "$china_ip_route" != "0" ] || [ "$disable_udp_quic" = "1" ]; then
-         if [ "$enable_redirect_dns" != "2" ]; then
-            mkdir -p ${DNSMASQ_CONF_DIR}
-            ipset -! create china_ip_route_pass hash:net family inet hashsize 1024 maxelem 1000000
-            awk '!/^$/&&!/^#/&&!/(^([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){2}([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4])((\/[0-9][0-9])?)$/{printf("ipset=/%s/china_ip_route_pass'" "'\n",$0)}' /etc/openclash/custom/openclash_custom_chnroute_pass.list >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-            for ip in $(uci_get_config "china_ip_route_pass"); do
-               [ -z "$ip" ] && continue
-               echo "$ip" | awk '!/^$/&&!/^#/&&!/(^([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.)(([0-9]{1,2}|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){2}([1-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-4])((\/[0-9][0-9])?)$/{printf("ipset=/%s/china_ip_route_pass'" "'\n",$0)}'
-            done >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-         fi
-      fi
-
-      if [ "$ipv6_enable" -eq 1 ]; then
-         if [ "$china_ip6_route" != "0" ] || [ "$disable_udp_quic" = "1" ]; then
-            if [ "$enable_redirect_dns" != "2" ]; then
-               mkdir -p ${DNSMASQ_CONF_DIR}
-               ipset -! create china_ip6_route_pass hash:net family inet6 hashsize 1024 maxelem 1000000
-               awk '!/^$/&&!/^#/&&/([0-9a-zA-Z-]{1,}\.)+([a-zA-Z]{2,})/{printf("ipset=/%s/china_ip_route_pass'" "'\n",$0)}' /etc/openclash/custom/openclash_custom_chnroute6_pass.list >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               for ip in $(uci_get_config "china_ip6_route_pass"); do
-                  [ -z "$ip" ] && continue
-                  echo "$ip" | awk '!/^$/&&!/^#/&&/([0-9a-zA-Z-]{1,}\.)+([a-zA-Z]{2,})/{printf("ipset=/%s/china_ip_route_pass'" "'\n",$0)}'
-               done >>${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               #Prevent domain repeat
-               for i in `grep -wf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf`
-               do
-                  sed -i "s:${i}:${i},china_ip6_route_pass:g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-                  sed -i 's:'$i':EXCLUSIVE:;/EXCLUSIVE/d' ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-               done
-               sed -i "s/china_ip_route_pass/china_ip6_route_pass/g" ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-            fi
-         fi
-      fi
-   fi
-}
-
-change_dnsmasq() {
-   if ! /etc/init.d/dnsmasq enabled; then
-      return
-   fi
-
-   # 区域绕过黑名单
-   load_ip_route_pass
-
-   # 第二 DNS 服务
-   /usr/share/openclash/openclash_custom_domain_dns.sh
-
-   if [ "$1" -eq 1 ]; then
-      if [ "$(uci_get_config "redirect_dns")" != "1" ]; then
-         uci -q del openclash.config.dnsmasq_server
-         config_load "dhcp"
-         config_list_foreach "$(uci -q show dhcp.@dnsmasq[0].server |awk -F '.' '{print $2}')" "server" save_dnsmasq_server
-         uci -q set openclash.config.dnsmasq_noresolv="$(uci -q get dhcp.@dnsmasq[0].noresolv)"
-         uci -q set openclash.config.dnsmasq_resolvfile="$(uci -q get dhcp.@dnsmasq[0].resolvfile)"
-      fi
-      uci -q del dhcp.@dnsmasq[-1].server
-      uci -q add_list dhcp.@dnsmasq[0].server=127.0.0.1#"$dns_port"
-      uci -q delete dhcp.@dnsmasq[0].resolvfile
-      uci -q set dhcp.@dnsmasq[0].noresolv=1
-      uci -q set dhcp.@dnsmasq[0].localuse=1
-      uci -q set openclash.config.redirect_dns=1
-      uci -q set openclash.config.dnsmasq_cachesize="$(uci -q get dhcp.@dnsmasq[0].cachesize)"
-      uci -q set dhcp.@dnsmasq[0].cachesize=0
-      uci -q set openclash.config.cachesize_dns=1
-   else
-      # Remove residual Dnsmasq redirect left
-      uci -q del_list dhcp.@dnsmasq[0].server="127.0.0.1#$dns_port"
-      uci -q set openclash.config.redirect_dns=0
-      uci -q set openclash.config.cachesize_dns=0
-   fi
-
-   if [ "$1" -eq 1 ] && [ "$ipv6_dns" -eq 1 ] && [ -n "$(ip6tables -t mangle -L 2>&1 | grep -o 'Chain')" ]; then
-      #dnsmasq answer ipv6
-      uci -q set openclash.config.dnsmasq_filter_aaaa="$(uci -q get dhcp.@dnsmasq[0].filter_aaaa)"
-      uci -q set dhcp.@dnsmasq[0].filter_aaaa=0
-      uci -q set openclash.config.filter_aaaa_dns=1
-   else
-      uci -q set openclash.config.filter_aaaa_dns=0
-   fi
-
-   uci -q commit openclash
-   uci -q commit dhcp
-   /etc/init.d/dnsmasq restart
-} >/dev/null 2>&1
-
-revert_dnsmasq()
-{
-   if ! /etc/init.d/dnsmasq enabled; then
-      return
-   fi
-
-   redirect_dns=$(uci_get_config "redirect_dns")
-   dnsmasq_server=$(uci_get_config "dnsmasq_server")
-   dnsmasq_noresolv=$(uci_get_config "dnsmasq_noresolv")
-   dnsmasq_resolvfile=$(uci_get_config "dnsmasq_resolvfile")
-   cachesize_dns=$(uci_get_config "cachesize_dns")
-   dnsmasq_cachesize=$(uci_get_config "dnsmasq_cachesize")
-   filter_aaaa_dns=$(uci_get_config "filter_aaaa_dns")
-   dnsmasq_filter_aaaa=$(uci_get_config "dnsmasq_filter_aaaa")
-   default_resolvfile=$(uci_get_config "default_resolvfile")
-
-   rm -rf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_custom_domain.conf
-   rm -rf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf
-   rm -rf ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf
-
-   [ "$redirect_dns" -eq 1 ] && {
-      uci -q del dhcp.@dnsmasq[-1].server
-      [ -n "$dnsmasq_server" ] && {
-         config_load "openclash"
-         config_list_foreach "config" "dnsmasq_server" set_dnsmasq_server
-      }
-
-      if [ "$dnsmasq_noresolv" == "0" ] || [ -z "$dnsmasq_noresolv" ] || [ -z "$(uci -q show dhcp.@dnsmasq[0].server)" ]; then
-         uci -q set dhcp.@dnsmasq[0].noresolv=0
-         if [ -n "$dnsmasq_resolvfile" ] && [ -n "$(grep nameserver $dnsmasq_resolvfile)" ]; then
-            uci -q set dhcp.@dnsmasq[0].resolvfile="$dnsmasq_resolvfile"
-         elif [ -n "$default_resolvfile" ] && [ -n "$(grep nameserver $default_resolvfile)" ]; then
-            uci -q set dhcp.@dnsmasq[0].resolvfile="$default_resolvfile"
-         elif [ -s "/tmp/resolv.conf.d/resolv.conf.auto" ] && [ -n "$(grep "nameserver" /tmp/resolv.conf.d/resolv.conf.auto)" ]; then
-            uci -q set dhcp.@dnsmasq[0].resolvfile=/tmp/resolv.conf.d/resolv.conf.auto
-            uci -q set openclash.config.default_resolvfile=/tmp/resolv.conf.d/resolv.conf.auto
-         elif [ -s "/tmp/resolv.conf.auto" ] && [ -n "$(grep "nameserver" /tmp/resolv.conf.auto)" ]; then
-            uci -q set dhcp.@dnsmasq[0].resolvfile=/tmp/resolv.conf.auto
-            uci -q set openclash.config.default_resolvfile=/tmp/resolv.conf.auto
-         else
-            uci -q set dhcp.@dnsmasq[0].resolvfile=/tmp/resolv.conf.d/resolv.conf.auto
-            uci -q set openclash.config.default_resolvfile=/tmp/resolv.conf.d/resolv.conf.auto
-         fi
-         uci -q set dhcp.@dnsmasq[0].localuse=1
-      fi
-   }
-
-   [ "$cachesize_dns" -eq 1 ] && {
-      uci -q set dhcp.@dnsmasq[0].cachesize="$dnsmasq_cachesize"
-      uci -q set openclash.config.cachesize_dns=0
-      uci -q delete openclash.config.dnsmasq_cachesize
-   }
-
-   [ "$filter_aaaa_dns" -eq 1 ] && {
-      uci -q set dhcp.@dnsmasq[0].filter_aaaa="$dnsmasq_filter_aaaa"
-      uci -q set openclash.config.filter_aaaa_dns=0
-      uci -q delete openclash.config.dnsmasq_filter_aaaa
-   }
-
-   [ "$redirect_dns" -eq 1 ] && {
-      uci -q set openclash.config.redirect_dns=0
-      uci -q del openclash.config.dnsmasq_server
-   }
-
-   uci -q commit dhcp
-   uci -q commit openclash
-
-   masq_port=$(uci -q get dhcp.@dnsmasq[0].port)
-   if [ "$(nslookup www.apple.com 127.0.0.1:${masq_port} >/dev/null 2>&1 || echo $?)" = "1" ]; then
-      resolv_file=$(uci -q get dhcp.@dnsmasq[0].resolvfile)
-      [ -z "$resolv_file" ] && resolv_file="/tmp/resolv.conf.d/resolv.conf.auto"
-      wan_dns=$(/usr/share/openclash/openclash_get_network.lua "dns")
-      wan6_dns=$(/usr/share/openclash/openclash_get_network.lua "dns6")
-      mkdir -p "$(dirname "$resolv_file")"
-      touch "$resolv_file"
-
-      if [ -n "$wan_dns" ]; then
-         echo "# Interface lan" > "$resolv_file"
-         for dns in $wan_dns; do
-            echo "nameserver $dns" >> "$resolv_file"
-         done
-      fi
-      if [ -n "$wan6_dns" ]; then
-         echo "# Interface LAN6" >> "$resolv_file"
-         for dns6 in $wan6_dns; do
-            echo "nameserver $dns6" >> "$resolv_file"
-         done
-      fi
-      if [ -z "$wan_dns" ] && [ -z "$wan6_dns" ]; then
-         cat > "$resolv_file" <<-EOF
-# Interface lan
-nameserver 119.29.29.29
-nameserver 8.8.8.8
-EOF
-      fi
-   fi
-
-   /etc/init.d/dnsmasq restart
-
 } >/dev/null 2>&1
 
 start_fail()
@@ -609,20 +339,14 @@ do_run_file()
 
    ln -s "$meta_core_path" /etc/openclash/clash
 
-   if [ -n "$OIX_TOKEN" ]; then
-      core_type="Oix"
-   elif [ "$smart_enable" -eq 1 ] || [ "$core_type" == "Smart" ]; then
-      core_type="Smart"
-   else
-      core_type="Meta"
-   fi
+   core_type="Meta"
 
    if [ -f "$CLASH" ] && [ ! -x "$CLASH" ]; then
       chmod 4755 "$CLASH"
       chown root:root "$CLASH"
    fi
 
-   [ ! -f "$CLASH" ] || { [ "$core_type" = "Smart" ] && [ -z "$($CLASH -v | grep 'smart')" ] && [ -z "$($CLASH -v | grep 'oix')" ]; } || { [ "$core_type" = "Oix" ] && [ -z "$($CLASH -v | grep 'oix')" ]; } && {
+   [ ! -f "$CLASH" ] && {
       LOG_TIP "【$core_type】Core is not Detected installed, Ready to Download..."
       /usr/share/openclash/openclash_core.sh "$core_type"
       if [ ! -f "$meta_core_path" ]; then
@@ -836,7 +560,6 @@ check_core_status()
 
    # redirect dns setting after core started, prevent core dns lookup failure
    if [ "$1" == "start" ]; then
-      change_dnsmasq "$enable_redirect_dns"
       set_firewall
       LOG_TIP "OpenClash Start Successful!"
    else
@@ -882,9 +605,6 @@ start_run_core()
    go_runtime_limits
    [ -n "$GO_MEM_LIMIT" ] && procd_append_param env GOMEMLIMIT="$GO_MEM_LIMIT"
    [ -n "$GO_GC" ] && procd_append_param env GOGC="$GO_GC"
-   procd_append_param env CLASH_AGE_SECRET_KEY="$SECRET_KEY"
-   procd_append_param env OIX_TOKEN="$OIX_TOKEN"
-   procd_append_param env OIX_PARAMS="$OIX_PARAMS"
    procd_set_param command /bin/sh -c "exec $CLASH -d $CLASH_CONFIG -f \"$CONFIG_FILE\" >> $LOG_FILE 2>&1"
    procd_set_param user "root"
    procd_set_param group "nogroup"
@@ -3268,7 +2988,6 @@ overwrite_file()
    : > "$overwrite_lines"
 
    allowed_keys_types="\
-      AGE_SECRET_KEY:string \
       AGE_PUBLIC_KEY:string \
       APPEND_DEFAULT_DNS:int_bool \
       APPEND_WAN_DNS:int_bool \
@@ -3347,8 +3066,6 @@ overwrite_file()
       LGBM_CUSTOM_URL:string \
       LGBM_UPDATE_INTERVAL:int \
       MIXED_PORT:int \
-      OIX_TOKEN:string \
-      OIX_PARAMS:string \
       PROXY_MODE:string \
       PROXY_PORT:int \
       ROUTER_SELF_PROXY:int_bool \
@@ -3427,9 +3144,6 @@ overwrite_file()
       printf 'M %s\n' "$name" >> "$overwrite_lines"
 
       cfg_name=$(basename "$(uci_get_config "config_path")" 2>/dev/null)
-      age_config_name="${cfg_name%.*}"
-      age_secret_key=""
-      age_public_key=""
       module_flag_name=$(printf '%s' "$name" | tr -c 'A-Za-z0-9' '_')
 
       param=$(uci -q get openclash."$sid".param 2>/dev/null || echo '')
@@ -3609,7 +3323,6 @@ overwrite_file()
                      ;;
                esac
                uci -q set openclash.@overwrite[0].config_path="$RAW_CONFIG_FILE"
-               age_config_name="${cfg_name%.*}"
                CONFIG_FILE="/etc/openclash/${cfg_name}"
                TMP_CONFIG_FILE="/tmp/${cfg_name}"
             elif [ "$key_u" = "SUB_INFO_URL" ]; then
@@ -3623,14 +3336,6 @@ overwrite_file()
                   uci -q set openclash.@subscribe_info[-1].name="${cfg_name%.*}"
                   uci -q add_list openclash.@subscribe_info[-1].url="$url_key"
                fi
-            elif [ "$key_u" = "AGE_SECRET_KEY" ]; then
-               strip_quotes "$val"
-               age_secret_key=$(expand_env_vars "$OVERWRITE_STRIPPED")
-               [ -z "$age_secret_key" ] && continue
-            elif [ "$key_u" = "AGE_PUBLIC_KEY" ]; then
-               strip_quotes "$val"
-               age_public_key=$(expand_env_vars "$OVERWRITE_STRIPPED")
-               [ -z "$age_public_key" ] && continue
             elif [ "$key_u" = "RESTART" ]; then
                strip_quotes "$val"
                val_key=$(expand_env_vars "$OVERWRITE_STRIPPED")
@@ -3667,10 +3372,6 @@ overwrite_file()
             printf '%s\n' "$yaml_line" >> "$yaml_temp_file"
          fi
       done < "$file"
-
-      if [ -n "$age_config_name" ] && { [ -n "$age_secret_key" ] || [ -n "$age_public_key" ]; }; then
-         uci_set_age_keys_by_name "$age_config_name" "$age_secret_key" "$age_public_key"
-      fi
 
       if [ -n "$yaml_temp_file" ]; then
          LOG_TIP "Load YAML Override Block【YAML Block => $name】"
@@ -3715,9 +3416,6 @@ get_config()
    CONFIG_FILE="/etc/openclash/${CFG_NAME}"
    TMP_CONFIG_FILE="/tmp/${CFG_NAME}"
    CFG_NO_EXT_NAME="${CFG_NAME%.*}"
-   SECRET_KEY=$(uci_get_age_secret_keys "$CFG_NO_EXT_NAME")
-   OIX_TOKEN=$(uci_get_config "oix_token")
-   OIX_PARAMS=$(uci_get_config "oix_params")
    enable=$(uci_get_config "enable")
    enable_custom_clash_rules=$(uci_get_config "enable_custom_clash_rules")
    da_password=$(uci_get_config "dashboard_password")
@@ -3731,7 +3429,7 @@ get_config()
    enable_v6_udp_proxy=$(uci_get_config "enable_v6_udp_proxy" || echo 0)
    http_port=$(uci_get_config "http_port")
    socks_port=$(uci_get_config "socks_port")
-   enable_redirect_dns=$(uci_get_config "enable_redirect_dns" || echo 1)
+   enable_redirect_dns=2
    if [ "$(uci_get_config "fakeip_range")"  == "0" ]; then
       fakeip_range=$(ruby_read "$RAW_CONFIG_FILE" "['dns']['fake-ip-range']")
    else
@@ -3795,24 +3493,12 @@ get_config()
    custom_fakeip_filter_mode=$(uci_get_config "custom_fakeip_filter_mode" || echo "blacklist")
    iptables_compat=$(iptables -m owner -h 2>/dev/null | grep "owner match options" || command -v fw4 || echo 0)
    disable_quic_go_gso=$(uci_get_config "disable_quic_go_gso" || echo 0)
-   smart_enable=$(uci_get_config "smart_enable" || echo 0)
    cors_allow=$(uci_get_config "dashboard_forward_domain" || echo 0)
    geo_custom_url=$(uci_get_config "geo_custom_url" || echo 0)
    geoip_custom_url=$(uci_get_config "geoip_custom_url" || echo 0)
    geosite_custom_url=$(uci_get_config "geosite_custom_url" || echo 0)
    geoasn_custom_url=$(uci_get_config "geoasn_custom_url" || echo 0)
    global_ua=$(uci_get_config "global_ua" || echo 0)
-   auto_smart_switch=$(uci_get_config "auto_smart_switch" || echo 0)
-   lgbm_auto_update=$(uci_get_config "lgbm_auto_update" || echo 0)
-   lgbm_custom_url=$(uci_get_config "lgbm_custom_url" || echo "https://github.com/vernesong/mihomo/releases/download/LightGBM-Model/Model.bin")
-   lgbm_update_interval=$(uci_get_config "lgbm_update_interval" || echo 72)
-   smart_collect=$(uci_get_config "smart_collect" || echo 0)
-   smart_collect_size=$(uci_get_config "smart_collect_size" || echo 100)
-   smart_collect_rate=$(uci_get_config "smart_collect_rate" || echo 1)
-   smart_policy_priority=$(uci_get_config "smart_policy_priority" || echo 0)
-   smart_enable_lgbm=$(uci_get_config "smart_enable_lgbm" || echo 0)
-   smart_prefer_asn=$(uci_get_config "smart_prefer_asn" || echo 0)
-   smart_tolerance=$(uci_get_config "smart_tolerance" || echo 0)
 
    [ -z "$dns_port" ] && dns_port=7874 && uci -q set openclash.config.dns_port=7874
    uci -q commit openclash
@@ -3943,14 +3629,6 @@ stop_service()
       revert_firewall
 
       LOG_OUT "Step 3: Close The OpenClash Services..."
-      for process in "openclash_streaming_unlock.lua"; do
-         pids=$(unify_ps_pids "$process")
-         if [ -n "$pids" ]; then
-            for pid in $pids; do
-               kill -9 "$pid"
-            done
-         fi
-      done
       # signal instead of procd_kill: deleting the watchdog instance would destroy its
       # cgroup, which is the context a watchdog driven restart runs in
       procd_send_signal "openclash-watchdog" "" TERM
@@ -3960,10 +3638,7 @@ stop_service()
          procd_running "openclash" >/dev/null && sleep 1 || break
       done
 
-      LOG_OUT "Step 4: Restart Dnsmasq..."
-      revert_dnsmasq
-
-      LOG_OUT "Step 5: Delete OpenClash Residue File..."
+      LOG_OUT "Step 4: Delete OpenClash Residue File..."
       LOG_TIP "OpenClash Already Stop!"
 
       if [ "$enable" != "1" ]; then
@@ -3971,10 +3646,7 @@ stop_service()
                 /tmp/openclash_cdn_info.json \
                 /tmp/openclash.change \
                 /tmp/openclash_announcement \
-                /tmp/openclash_tpl_cache \
-                ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute_pass.conf \
-                ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_chnroute6_pass.conf \
-                ${DNSMASQ_CONF_DIR}/dnsmasq_openclash_custom_domain.conf
+                /tmp/openclash_tpl_cache
       fi
 
       del_cron
@@ -4090,7 +3762,6 @@ reload_service()
    fi
    if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "revert" ]; then
       revert_firewall
-      revert_dnsmasq
    fi
    if pidof clash >/dev/null && [ "$enable" == "1" ] && [ "$1" == "restore" ]; then
       do_run_mode
