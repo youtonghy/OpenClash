@@ -43,25 +43,14 @@ if [ -z "$DIRECT_CORE_URL" ]; then
    fi
 fi
 CORE_TYPE="$1"
-C_CORE_TYPE=$(uci_get_config "core_type")
-SMART_ENABLE=$(uci_get_config "smart_enable" || echo 0)
-OIX_TOKEN=$(uci_get_config "oix_token")
-[ "$SMART_ENABLE" -eq 1 ] && CORE_TYPE="Smart"
-[ -n "$OIX_TOKEN" ] && CORE_TYPE="Oix"
-[ -z "$CORE_TYPE" ] && CORE_TYPE="Meta"
+CORE_TYPE="Meta"
 small_flash_memory=$(uci_get_config "small_flash_memory")
 CPU_MODEL=$(uci_get_config "core_version")
 RELEASE_BRANCH=$(uci_get_config "release_branch" || echo "master")
 
 if [ -z "$DIRECT_CORE_URL" ]; then
    lua /usr/share/openclash/openclash_version.lua "$github_address_mod" 2>/dev/null
-   if [ "$CORE_TYPE" = "Oix" ]; then
-      CORE_LV=$(jsonfilter -i /tmp/openclash_version_history.json -e "@.oix.ver" 2>/dev/null)
-   elif [ "$CORE_TYPE" = "Smart" ]; then
-      CORE_LV=$(jsonfilter -i /tmp/openclash_version_history.json -e "@.${RELEASE_BRANCH}.latest.core_smart" 2>/dev/null)
-   else
-      CORE_LV=$(jsonfilter -i /tmp/openclash_version_history.json -e "@.${RELEASE_BRANCH}.latest.core_meta" 2>/dev/null)
-   fi
+   CORE_LV=$(jsonfilter -i /tmp/openclash_version_history.json -e "@.${RELEASE_BRANCH}.latest.core_meta" 2>/dev/null)
    if [ -z "$CORE_LV" ]; then
       LOG_ERROR "【"$CORE_TYPE"】Core Version Check Error, Please Try Again Later..."
       del_lock
@@ -81,18 +70,13 @@ TARGET_CORE_PATH="$meta_core_path"
 CORE_CV=$($TARGET_CORE_PATH -v 2>/dev/null |awk -F ' ' '{print $3}' |head -1)
 TMP_FILE="${TARGET_CORE_PATH}.new.$$"
 
-if [ "$CORE_TYPE" = "Oix" ]; then
-   CORE_URL_PATH=""
-   DOWNLOAD_FILE="/tmp/clash_meta.gz"
-elif [ "$CORE_TYPE" = "Smart" ]; then
-   CORE_URL_PATH="$RELEASE_BRANCH/smart"
-   DOWNLOAD_FILE="/tmp/clash_meta.tar.gz"
-else
-   CORE_URL_PATH="$RELEASE_BRANCH/meta"
-   DOWNLOAD_FILE="/tmp/clash_meta.tar.gz"
-fi
+CORE_URL_PATH="$RELEASE_BRANCH/meta"
 
-[ "$C_CORE_TYPE" != "$CORE_TYPE" ] || [ -z "$C_CORE_TYPE" ] && restart=1
+# Download and unpack next to the target so tmpfs stays free on low-memory routers.
+# On small-flash devices the target itself lives in /tmp and this changes nothing.
+WORK_DIR="$(dirname "$TARGET_CORE_PATH")/.update.$$"
+mkdir -p "$WORK_DIR"
+DOWNLOAD_FILE="$WORK_DIR/clash_meta.tar.gz"
 
 if [ -n "$DIRECT_CORE_URL" ] || [ "$CORE_CV" != "$CORE_LV" ] || [ -z "$CORE_CV" ]; then
    if [ "$CPU_MODEL" != 0 ]; then
@@ -100,14 +84,6 @@ if [ -n "$DIRECT_CORE_URL" ] || [ "$CORE_CV" != "$CORE_LV" ] || [ -z "$CORE_CV" 
       # If $2 is a full download URL, use it directly
       if [ -n "$2" ] && echo "$2" | grep -qE '^https?://'; then
          DOWNLOAD_URL="$2"
-      elif [ "$CORE_TYPE" = "Oix" ]; then
-         OIX_CORE_URL="https://github.com/vernesong/mihomo-oix/releases/download/Pre-Alpha/mihomo-${CPU_MODEL}-${CORE_LV}.gz"
-         OIX_CORE_P_URL="https://dl.dler.io/mihomo-oix/mihomo-${CPU_MODEL}-${CORE_LV}.gz?tag=Pre-Alpha"
-         if [ "$github_address_mod" != "0" ] && [ "$github_address_mod" != "https://cdn.jsdelivr.net/" ] && [ "$github_address_mod" != "https://fastly.jsdelivr.net/" ] && [ "$github_address_mod" != "https://testingcf.jsdelivr.net/" ]; then
-            DOWNLOAD_URL="${github_address_mod}${OIX_CORE_URL}"
-         else
-            DOWNLOAD_URL="$OIX_CORE_P_URL"
-         fi
       else
          if [ "$github_address_mod" != "0" ]; then
             if [ "$github_address_mod" == "https://cdn.jsdelivr.net/" ] || [ "$github_address_mod" == "https://fastly.jsdelivr.net/" ] || [ "$github_address_mod" == "https://testingcf.jsdelivr.net/" ]; then
@@ -139,12 +115,8 @@ if [ -n "$DIRECT_CORE_URL" ] || [ "$CORE_CV" != "$CORE_LV" ] || [ -z "$CORE_CV" 
                extract_success=true
                extract_err=""
                [ -s "$DOWNLOAD_FILE" ] && {
-                  if [ "$CORE_TYPE" = "Oix" ]; then
-                     extract_err=$(gzip -dc "$DOWNLOAD_FILE" > "$TMP_FILE" 2>&1) || extract_success=false
-                  else
-                     extract_err=$(tar zxvfo "$DOWNLOAD_FILE" -C /tmp 2>&1) || extract_success=false
-                     [ "$extract_success" = "true" ] && { extract_err=$(mv /tmp/clash "$TMP_FILE" 2>&1) || extract_success=false; }
-                  fi
+                  extract_err=$(tar zxvfo "$DOWNLOAD_FILE" -C "$WORK_DIR" 2>&1) || extract_success=false
+                  [ "$extract_success" = "true" ] && { extract_err=$(mv "$WORK_DIR/clash" "$TMP_FILE" 2>&1) || extract_success=false; }
                   rm -rf "$DOWNLOAD_FILE" >/dev/null 2>&1
                   [ "$extract_success" = "true" ] && { extract_err=$(chmod 4755 "$TMP_FILE" 2>&1) || extract_success=false; }
                   [ "$extract_success" = "true" ] && { extract_err=$("$TMP_FILE" -v 2>&1) || extract_success=false; }
@@ -168,7 +140,6 @@ if [ -n "$DIRECT_CORE_URL" ] || [ "$CORE_CV" != "$CORE_LV" ] || [ -z "$CORE_CV" 
                if [ "$?" == "0" ]; then
                   LOG_TIP "【"$CORE_TYPE"】Core Update Successful"
                   UPDATE_SUCCESS=1
-                  restart=1
                   break
                else
                   if [ "$retry_count" -lt "$max_retries" ]; then
@@ -210,7 +181,10 @@ else
    LOG_TIP "【"$CORE_TYPE"】Core Has Not Been Updated, Stop Continuing Operation"
 fi
 
-rm -rf "$TMP_FILE" >/dev/null 2>&1
-[ "$UPDATE_SUCCESS" = "1" ] && restart=1 || restart=0
-dec_job_counter_and_restart "$restart"
+rm -rf "$TMP_FILE" "$WORK_DIR" >/dev/null 2>&1
+dec_job_counter_and_restart 0
+# A new binary only needs the core process replaced; a pending full restart picks it up anyway
+if [ "$UPDATE_SUCCESS" = "1" ] && [ "$(unify_ps_prevent)" -eq 0 ]; then
+   /etc/init.d/openclash core_restart >/dev/null 2>&1
+fi
 del_lock

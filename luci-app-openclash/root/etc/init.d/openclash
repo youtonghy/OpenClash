@@ -4,6 +4,8 @@
 START=99
 STOP=15
 USE_PROCD=1
+EXTRA_COMMANDS="core_restart"
+EXTRA_HELP="	core_restart	Restart only the core process, keep firewall rules"
 
 . $IPKG_INSTROOT/usr/share/openclash/openclash_ps.sh
 . $IPKG_INSTROOT/usr/share/openclash/ruby.sh
@@ -845,6 +847,22 @@ check_core_status()
    write_run_quick
 } >/dev/null 2>&1
 
+# Soft limits for the Go runtime. Devices with 512MB of RAM or less get a conservative
+# default, an empty value means the UCI option was not set.
+go_runtime_limits()
+{
+   GO_MEM_LIMIT=$(uci_get_config "go_mem_limit")
+   GO_GC=$(uci_get_config "go_gc")
+
+   if [ -z "$GO_MEM_LIMIT" ] && [ "$(awk '/^MemTotal:/{print $2}' /proc/meminfo)" -le 524288 ]; then
+      GO_MEM_LIMIT="80MiB"
+      GO_GC="${GO_GC:-50}"
+   fi
+
+   echo "$GO_MEM_LIMIT" | grep -qE '^[0-9]+(KiB|MiB|GiB)$' || GO_MEM_LIMIT=""
+   echo "$GO_GC" | grep -qE '^[0-9]+$' || GO_GC=""
+}
+
 start_run_core()
 {
    # Set TCP Fast Open blackhole timeout to 0 (disable detection) for nodes TFO availability
@@ -861,6 +879,9 @@ start_run_core()
    chown root:root "$CLASH"
    procd_open_instance "openclash"
    procd_set_param env SAFE_PATHS=/usr/share/openclash:/etc/ssl
+   go_runtime_limits
+   [ -n "$GO_MEM_LIMIT" ] && procd_append_param env GOMEMLIMIT="$GO_MEM_LIMIT"
+   [ -n "$GO_GC" ] && procd_append_param env GOGC="$GO_GC"
    procd_append_param env CLASH_AGE_SECRET_KEY="$SECRET_KEY"
    procd_append_param env OIX_TOKEN="$OIX_TOKEN"
    procd_append_param env OIX_PARAMS="$OIX_PARAMS"
@@ -3978,6 +3999,44 @@ restart()
    check_run_quick
    stop_service
    start
+}
+
+# Used after a core update: procd respawns the instance with the new binary, the firewall
+# rules and policy routing rules stay in place, only the routes bound to utun are rebuilt.
+core_restart()
+{
+   local old_pid new_pid i
+   old_pid=$(pidof clash)
+   [ -z "$old_pid" ] && return 0
+
+   get_config
+   do_run_mode
+   LOG_TIP "Restarting The Core Process..."
+   procd_send_signal "openclash" "openclash" TERM
+
+   for i in $(seq 1 30); do
+      new_pid=$(pidof clash)
+      [ -n "$new_pid" ] && [ "$new_pid" != "$old_pid" ] && break
+      sleep 1
+   done
+   if [ -z "$new_pid" ] || [ "$new_pid" = "$old_pid" ]; then
+      LOG_ERROR "Core Did Not Come Back, Falling Back To A Full Restart..."
+      restart
+      return
+   fi
+
+   if [ -n "$en_mode_tun" ] || [ "$ipv6_mode" -eq 2 ] || [ "$ipv6_mode" -eq 3 ]; then
+      for i in $(seq 1 60); do
+         ip link show utun >/dev/null 2>&1 && break
+         sleep 1
+      done
+      ip link set utun up 2>/dev/null
+      [ -n "$en_mode_tun" ] && ip route replace default dev utun table "$PROXY_ROUTE_TABLE" 2>/dev/null
+      if [ "$ipv6_mode" -eq 2 ] || [ "$ipv6_mode" -eq 3 ]; then
+         ip -6 route replace default dev utun table "$PROXY_ROUTE_TABLE" 2>/dev/null
+      fi
+   fi
+   LOG_TIP "Core Restart Successful!"
 }
 
 # rc.common calls this hook after the "openclash" service definition was sent, the

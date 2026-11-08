@@ -276,7 +276,7 @@ fi
          LOG_WATCHDOG "Setting Firewall For Rules Order..."
          /etc/init.d/openclash reload "firewall"
          let FIREWALL_RELOAD++
-      elif [ -n "$(ip link show utun 2>/dev/null)" ] && [ -n "$(ip rule show 2>/dev/null | grep "fwmark $PROXY_FWMARK")" ] && [ -z "$(ip route list table 354)" ]; then
+      elif [ -n "$(ip link show utun 2>/dev/null)" ] && [ -n "$(ip rule show 2>/dev/null | grep "fwmark $PROXY_FWMARK")" ] && [ -z "$(ip route list table 354 | grep utun)" ]; then
          ## 路由表检查
          LOG_WATCHDOG "Setting Firewall For IP Rules Table Recreate..."
          /etc/init.d/openclash reload "firewall"
