@@ -14,10 +14,12 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2022',
     assetsInlineLimit: 0,
+    // app.htm links one stylesheet, split CSS would only load after visiting a lazy page
+    cssCodeSplit: false,
     rollupOptions: {
       output: {
         entryFileNames: 'assets/app.js',
-        assetFileNames: info => (info.names?.[0]?.endsWith('.css') && info.names[0].startsWith('index') ? 'assets/app.css' : 'assets/[name]-[hash][extname]'),
+        assetFileNames: info => (info.names?.[0]?.endsWith('.css') ? 'assets/app.css' : 'assets/[name]-[hash][extname]'),
         chunkFileNames: 'assets/[name]-[hash].js',
       },
     },
