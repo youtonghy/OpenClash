@@ -8,7 +8,20 @@ export type Connection = {
   chains: string[]
   rule: string
   rulePayload: string
-  metadata: { host: string; destinationIP: string; sourceIP: string; network: string; destinationPort: string }
+  start: string
+  metadata: {
+    host: string
+    destinationIP: string
+    sourceIP: string
+    network: string
+    destinationPort: string
+    sourcePort?: string
+    type?: string
+    process?: string
+    processPath?: string
+    sniffHost?: string
+    remoteDestination?: string
+  }
 }
 
 export type Snapshot = { downloadTotal: number; uploadTotal: number; connections: Connection[]; memory?: number }

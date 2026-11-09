@@ -13,7 +13,7 @@
 .rowMain { display: grid; gap: 2px; min-width: 0; flex: 1 1 240px; }
 .rowName { color: var(--foreground); font-size: var(--text-sm); font-weight: 500; overflow-wrap: anywhere; }
 .rowMeta { color: var(--text-muted); font-size: var(--text-xs); }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .log { margin: 0; max-height: 60vh; overflow: auto; font-family: var(--font-mono, ui-monospace, monospace); font-size: var(--text-xs); line-height: 1.6; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
 .editor { border: 1px solid var(--border); border-radius: var(--radius-control); overflow: hidden; min-height: 320px; }
 .field { display: grid; gap: 6px; }
@@ -22,3 +22,12 @@
 .fieldDesc { margin: 0; color: var(--text-muted); font-size: var(--text-xs); }
 .textarea { width: 100%; min-height: 96px; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); color: var(--foreground); font: inherit; font-size: var(--text-sm); resize: vertical; }
 .tableScroll { overflow-x: auto; overscroll-behavior-x: contain; }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.spread { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.grow { flex: 1 1 240px; min-width: 0; }
+.details { display: grid; grid-template-columns: minmax(72px, auto) minmax(0, 1fr); gap: 8px 16px; margin: 0; font-size: var(--text-sm); }
+.details dt { color: var(--text-muted); }
+.details dd { margin: 0; color: var(--foreground); overflow-wrap: anywhere; }
+.numeric { font-variant-numeric: tabular-nums; }
+.rowActions { display: flex; justify-content: flex-end; gap: 4px; white-space: nowrap; }
+.pair { display: grid; gap: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }

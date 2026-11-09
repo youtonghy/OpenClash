@@ -18,8 +18,10 @@ commit the result whenever `src/` changes.
   `luasrc/openclash/api/*.lua` and load on first use.
 - Mutating routes use LuCI's `post()` and need the token from `window.__OC__`. Upload routes read the
   token from the query string, because their body must not be parsed before the file handler is set.
-- Live traffic, connections and providers come straight from the mihomo controller, through
-  `/oc-api` when nginx provides it and otherwise on the controller port.
+- Live traffic, proxy groups, connections and providers come straight from the mihomo controller,
+  through `/oc-api` when nginx provides it and otherwise on the controller port.
+- Choosing a node on the proxy groups page closes that group's connections, so they reconnect through
+  the new node. Testing a pinned automatic group re-pins it, because the controller clears the pin.
 
 ## Kill switch
 

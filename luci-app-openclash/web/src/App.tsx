@@ -1,11 +1,13 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
-import { BarChart3, FileCode2, Files as FilesIcon, Gauge, Layers, ScrollText, Settings as SettingsIcon, Shuffle, RefreshCw, ExternalLink } from 'lucide-react'
+import { BarChart3, Cable, FileCode2, Files as FilesIcon, Gauge, Rss, ScrollText, Settings as SettingsIcon, Shuffle, RefreshCw, ExternalLink, Waypoints } from 'lucide-react'
 import { apiGet, app, isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { usePolling } from '@/lib/mihomo'
 import { Overview } from '@/pages/Overview'
 import styles from './App.module.css'
 
+const Proxies = lazy(() => import('@/pages/Proxies').then(m => ({ default: m.Proxies })))
+const Connections = lazy(() => import('@/pages/Connections').then(m => ({ default: m.Connections })))
 const Stats = lazy(() => import('@/pages/Stats').then(m => ({ default: m.Stats })))
 const Config = lazy(() => import('@/pages/Config').then(m => ({ default: m.Config })))
 const Providers = lazy(() => import('@/pages/Providers').then(m => ({ default: m.Providers })))
@@ -17,9 +19,11 @@ const Logs = lazy(() => import('@/pages/Logs').then(m => ({ default: m.Logs })))
 
 const nav = [
   { id: 'overview', label: t('概览', 'Overview'), icon: Gauge },
+  { id: 'proxies', label: t('策略组', 'Proxy groups'), icon: Waypoints },
+  { id: 'connections', label: t('连接', 'Connections'), icon: Cable },
   { id: 'stats', label: t('统计', 'Statistics'), icon: BarChart3 },
   { id: 'config', label: t('配置', 'Config'), icon: FileCode2 },
-  { id: 'providers', label: t('规则集', 'Providers'), icon: Layers },
+  { id: 'providers', label: t('订阅', 'Subscriptions'), icon: Rss },
   { id: 'overwrite', label: t('覆写', 'Overwrite'), icon: Shuffle },
   { id: 'files', label: t('自定义', 'Custom'), icon: FilesIcon },
   { id: 'settings', label: t('设置', 'Settings'), icon: SettingsIcon },
@@ -85,6 +89,8 @@ export default function App() {
       <div className={styles.content}>
         <Suspense fallback={null}>
         {page === 'overview' && <Overview status={status} refresh={refresh} />}
+        {page === 'proxies' && <Proxies status={status} />}
+        {page === 'connections' && <Connections status={status} />}
         {page === 'stats' && <Stats status={status} />}
         {page === 'config' && <Config />}
         {page === 'providers' && <Providers status={status} />}
