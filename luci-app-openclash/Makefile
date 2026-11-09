@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-openclash
-PKG_VERSION:=0.49.001
+PKG_VERSION:=0.49.002
 PKG_MAINTAINER:=youtonghy <https://github.com/youtonghy/OpenClash>
 
 PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
