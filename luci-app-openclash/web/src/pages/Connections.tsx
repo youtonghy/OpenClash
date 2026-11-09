@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { Alert } from '@/components/arc/alert/alert'
+import { Badge } from '@/components/arc/badge/badge'
 import { Button } from '@/components/arc/button/button'
 import { ConfirmMorph } from '@/components/arc/confirm-morph/confirm-morph'
 import { Drawer, DrawerContent } from '@/components/arc/drawer/drawer'
@@ -9,15 +10,17 @@ import { Pagination } from '@/components/arc/pagination/pagination'
 import { SearchField } from '@/components/arc/search-field/search-field'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
 import { SortableDataTable, type SortDirection, type SortState } from '@/components/arc/sortable-data-table/sortable-data-table'
-import { bytes, isRunning, type Status } from '@/lib/api'
+import { apiGet, bytes, isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
-import { mihomoFetch, useMihomoStream, type Connection, type Snapshot } from '@/lib/mihomo'
+import { mihomoFetch, useMihomoStream, usePolling, type Connection, type Snapshot } from '@/lib/mihomo'
 import styles from './layout.module.css'
 
 type View = 'active' | 'closed'
 type FilterKey = 'source' | 'rule' | 'group' | 'node' | 'network'
+type DeviceNames = Record<string, string>
 type Row = Record<FilterKey, string> & {
   id: string
+  device?: string
   host: string
   port: string
   ruleName: string
@@ -36,12 +39,12 @@ const CLOSED_LIMIT = 500
 const ALL = '__all__'
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' })
 
-/** Keeps the first group and the last two of a long IPv6 address, which is enough to tell devices apart. */
+/** Keeps the last two groups of a long IPv6 address, which is enough to tell devices apart. */
 function shortIp(ip: string) {
   const address = ip.replace(/^::ffff:/i, '')
   if (!address.includes(':') || address.length <= 16) return address
   const groups = address.split(':')
-  return `${groups[0]}:…:${groups.at(-2)}:${groups.at(-1)}`
+  return `…:${groups.at(-2)}:${groups.at(-1)}`
 }
 
 const bracket = (ip: string) => (ip.includes(':') ? `[${ip}]` : ip)
@@ -73,17 +76,19 @@ function duration(seconds: number) {
   return t(`${Math.floor(s / 3600)}时${Math.floor(s / 60) % 60}分`, `${Math.floor(s / 3600)}h ${Math.floor(s / 60) % 60}m`)
 }
 
-function toRow(c: Connection, previous: Row | undefined, seconds: number, now: number): Row {
+function toRow(c: Connection, previous: Row | undefined, seconds: number, now: number, devices: DeviceNames): Row {
   const m = c.metadata
   const rate = (value: number, before?: number) => (before === undefined || seconds <= 0 ? 0 : Math.max(0, value - before) / seconds)
   const host = m.host || bracket(shortIp(m.destinationIP))
   const rule = c.rulePayload ? `${c.rule}: ${c.rulePayload}` : c.rule
   const chains = c.chains ?? []
-  const source = m.sourceIP || t('路由器', 'Router')
+  const device = m.sourceIP ? devices[m.sourceIP] : t('路由器', 'Router')
+  const source = device ?? m.sourceIP
   // the controller lists the chain from the exit node back to the matched group
   const chain = [...chains].reverse().join(' → ')
   return {
     id: c.id,
+    device,
     host,
     port: m.destinationPort,
     network: m.network.toUpperCase(),
@@ -98,7 +103,7 @@ function toRow(c: Connection, previous: Row | undefined, seconds: number, now: n
     upload: c.upload,
     download: c.download,
     age: (now - new Date(c.start).getTime()) / 1000,
-    search: [host, m.host, m.destinationIP, m.sniffHost, rule, chain, source, m.process, m.network].join(' ').toLowerCase(),
+    search: [host, m.host, m.destinationIP, m.sniffHost, rule, chain, device, m.sourceIP, m.process, m.network].join(' ').toLowerCase(),
     raw: c,
   }
 }
@@ -121,17 +126,28 @@ export function Connections({ status }: { status?: Status }) {
   const [sort, setSort] = useState<SortState>({ key: 'age', direction: 'asc' })
   // the table only reads its sort on mount, so the toolbar remounts it to apply a new one
   const [sortVersion, setSortVersion] = useState(0)
+  const [devices, setDevices] = useState<DeviceNames>({})
+  const [devicesError, setDevicesError] = useState<string | null>(null)
   const [closing, setClosing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const previous = useRef<{ at: number; rows: Map<string, Row> }>({ at: 0, rows: new Map() })
 
+  usePolling(() => {
+    apiGet<DeviceNames>('device_names')
+      .then(names => {
+        setDevices(names)
+        setDevicesError(null)
+      })
+      .catch(err => setDevicesError((err as Error).message))
+  }, 60000, running)
+
   useMihomoStream<Snapshot>(status, '/connections?interval=2000', running && !paused, data => {
     const now = Date.now()
     const last = previous.current
     const seconds = last.at ? (now - last.at) / 1000 : 0
-    const rows = (data.connections ?? []).map(item => toRow(item, last.rows.get(item.id), seconds, now))
+    const rows = (data.connections ?? []).map(item => toRow(item, last.rows.get(item.id), seconds, now, devices))
     const live = new Set(rows.map(row => row.id))
     const gone = [...last.rows.values()].filter(row => !live.has(row.id)).map(row => ({ ...row, upSpeed: 0, downSpeed: 0 }))
     previous.current = { at: now, rows: new Map(rows.map(row => [row.id, row])) }
@@ -222,7 +238,8 @@ export function Connections({ status }: { status?: Status }) {
         [t('目标', 'Destination'), `${detail.raw.metadata.host || bracket(detail.raw.metadata.destinationIP)}:${detail.port}`],
         [t('目标 IP', 'Destination IP'), detail.raw.metadata.destinationIP],
         [t('嗅探域名', 'Sniffed host'), detail.raw.metadata.sniffHost],
-        [t('来源', 'Source'), detail.raw.metadata.sourcePort ? `${detail.source}, ${t('端口', 'port')} ${detail.raw.metadata.sourcePort}` : detail.source],
+        [t('设备', 'Device'), detail.device],
+        [t('来源', 'Source'), [detail.raw.metadata.sourceIP, detail.raw.metadata.sourcePort && `${t('端口', 'port')} ${detail.raw.metadata.sourcePort}`].filter(Boolean).join(', ')],
         [t('网络', 'Network'), [detail.network, detail.raw.metadata.type].filter(Boolean).join(' · ')],
         [t('规则', 'Rule'), detail.rule],
         [t('代理链', 'Chain'), detail.chain],
@@ -261,6 +278,7 @@ export function Connections({ status }: { status?: Status }) {
         )}
       </header>
       {error && <Alert tone="danger" title={t('操作失败', 'That did not work')}>{error}</Alert>}
+      {devicesError && <Alert tone="warning" title={t('无法读取设备名称，暂时显示地址', 'Could not load device names, showing addresses for now')}>{devicesError}</Alert>}
       <section className={styles.card}>
         {!running
           ? <EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动 RouterClash 后这里会显示实时连接。', 'Start RouterClash to see live connections.')} />
@@ -312,9 +330,12 @@ export function Connections({ status }: { status?: Status }) {
                   onSortChange={next => { setSort(next); setPage(1) }}
                   columns={[
                     { key: 'host', label: t('目标', 'Destination'), render: (_, row) => (
-                      <button type="button" className={styles.cellButton} title={`${row.raw.metadata.host || bracket(row.raw.metadata.destinationIP)}:${row.port}\n${row.source}`} onClick={() => openDetail(row.id)}>
+                      <button type="button" className={styles.cellButton} title={`${row.raw.metadata.host || bracket(row.raw.metadata.destinationIP)}:${row.port}\n${row.raw.metadata.sourceIP}`} onClick={() => openDetail(row.id)}>
                         <span className={styles.cellMain}>{row.host}<span className={styles.cellPort}>:{row.port}</span></span>
-                        <span className={styles.cellSub}>{shortIp(row.source)} · {row.network}</span>
+                        <span className={styles.cellSource}>
+                          {row.device ? <span className={styles.cellMain}>{row.device}</span> : <Badge size="sm" pill>{shortIp(row.source)}</Badge>}
+                          <span>· {row.network}</span>
+                        </span>
                       </button>
                     ) },
                     { key: 'node', label: t('节点与规则', 'Node and rule'), width: 184, render: (_, row) => (

@@ -22,6 +22,7 @@ local handlers = {
 	action_del_log = "logs",
 	action_del_start_log = "logs",
 	action_delete_dashboard = "dashboard",
+	action_device_names = "devices",
 	action_diag_connection = "logs",
 	action_diag_dns = "logs",
 	action_flush_dns_cache = "status",

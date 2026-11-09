@@ -39,6 +39,7 @@
 .cellMain, .cellSub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cellSub, .cellPort { color: var(--text-muted); }
 .cellSub { font-size: var(--text-xs); }
+.cellSource { display: flex; align-items: center; gap: 4px; min-width: 0; color: var(--text-muted); font-size: var(--text-xs); white-space: nowrap; }
 @media (hover: hover) and (pointer: fine) { .cellButton:hover .cellMain { text-decoration: underline; } }
 .groupRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 17rem) 5.5rem 9.5rem; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border); }
 .groupRow:first-of-type { border-top: 0; }

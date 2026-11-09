@@ -20,6 +20,8 @@ commit the result whenever `src/` changes.
   token from the query string, because their body must not be parsed before the file handler is set.
 - Live traffic, proxy groups, connections and providers come straight from the mihomo controller,
   through `/oc-api` when nginx provides it and otherwise on the controller port.
+- `device_names` maps LAN addresses to device names (DHCP settings, leases and the neighbour table) for
+  the connections page. Addresses without a name are shown shortened in a pill.
 - Choosing a node on the proxy groups page closes that group's connections, so they reconnect through
   the new node. Testing a pinned automatic group re-pins it, because the controller clears the pin.
 

@@ -19,6 +19,7 @@ function index()
 
 	entry({"admin", "services", "openclash", "conn_status"}, call("action_conn_status")).leaf = true
 	entry({"admin", "services", "openclash", "status"}, call("action_status")).leaf = true
+	entry({"admin", "services", "openclash", "device_names"}, call("action_device_names")).leaf = true
 	entry({"admin", "services", "openclash", "startlog"}, call("action_start")).leaf = true
 	entry({"admin", "services", "openclash", "refresh_log"}, call("action_refresh_log")).leaf = true
 	entry({"admin", "services", "openclash", "del_log"}, post("action_del_log")).leaf = true
