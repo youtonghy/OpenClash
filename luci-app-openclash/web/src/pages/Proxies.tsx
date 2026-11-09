@@ -2,10 +2,8 @@ import { useCallback, useMemo, useState } from 'react'
 import { Alert } from '@/components/arc/alert/alert'
 import { Badge } from '@/components/arc/badge/badge'
 import { Button } from '@/components/arc/button/button'
-import { Drawer, DrawerContent } from '@/components/arc/drawer/drawer'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
-import { RadioCards } from '@/components/arc/radio-cards/radio-cards'
-import { SearchField } from '@/components/arc/search-field/search-field'
+import { MorphSelect, type MorphSelectOption } from '@/components/arc/morph-select/morph-select'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import { isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
@@ -49,10 +47,24 @@ function lastDelay(proxies: ProxyMap, name: string | undefined, url: string): nu
   return (extra?.length ? extra : node?.history)?.at(-1)?.delay
 }
 
+function delayText(value?: number) {
+  if (value === undefined) return undefined
+  return value === 0 ? t('超时', 'Timed out') : `${value} ms`
+}
+
 function Delay({ value }: { value?: number }) {
   if (value === undefined) return null
-  if (value === 0) return <Badge tone="danger">{t('超时', 'Timed out')}</Badge>
-  return <Badge tone={value < 300 ? 'success' : value < 800 ? 'warning' : 'danger'}><span className={styles.numeric}>{value} ms</span></Badge>
+  return <Badge tone={value === 0 || value >= 800 ? 'danger' : value < 300 ? 'success' : 'warning'}><span className={styles.numeric}>{delayText(value)}</span></Badge>
+}
+
+function nodeOptions(proxies: ProxyMap, group: ProxyNode): MorphSelectOption[] {
+  return (group.all ?? []).map(name => ({
+    value: name,
+    label: name,
+    meta: delayText(lastDelay(proxies, name, testUrl(group))),
+    keywords: proxies[name]?.type,
+    disabled: !canChoose(group),
+  }))
 }
 
 export function Proxies({ status }: { status?: Status }) {
@@ -61,11 +73,7 @@ export function Proxies({ status }: { status?: Status }) {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const [testing, setTesting] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  // survives closing so the drawer keeps its content while it slides out
-  const [openName, setOpenName] = useState<string | null>(null)
-  const [query, setQuery] = useState('')
+  const [switching, setSwitching] = useState<string | null>(null)
 
   const load = useCallback(() => {
     if (!status) return Promise.resolve()
@@ -110,8 +118,10 @@ export function Proxies({ status }: { status?: Status }) {
 
   const choose = async (group: ProxyNode, node: string) => {
     if (node === group.now) return
-    setBusy(true)
+    setSwitching(group.name)
     setActionError(null)
+    // the dropdown keeps the pick while the switch runs, the reload below corrects it on failure
+    setProxies(current => current && { ...current, [group.name]: { ...current[group.name], now: node } })
     try {
       await select(group.name, node)
       await closeGroupConnections(group.name)
@@ -119,13 +129,13 @@ export function Proxies({ status }: { status?: Status }) {
       fail(err)
     } finally {
       await load()
-      setBusy(false)
+      setSwitching(null)
     }
   }
 
   const unpin = async (group: ProxyNode) => {
     if (!status) return
-    setBusy(true)
+    setSwitching(group.name)
     setActionError(null)
     try {
       await mihomoFetch(status, path(group.name), { method: 'DELETE' })
@@ -133,7 +143,7 @@ export function Proxies({ status }: { status?: Status }) {
       fail(err)
     } finally {
       await load()
-      setBusy(false)
+      setSwitching(null)
     }
   }
 
@@ -155,24 +165,6 @@ export function Proxies({ status }: { status?: Status }) {
     }
   }
 
-  const openGroup = (name: string) => {
-    setActionError(null)
-    setQuery('')
-    setOpenName(name)
-    setDrawerOpen(true)
-  }
-
-  const current = openName ? proxies?.[openName] : undefined
-  const needle = query.trim().toLowerCase()
-  const options = (current?.all ?? [])
-    .filter(name => !needle || name.toLowerCase().includes(needle))
-    .map(name => ({
-      value: name,
-      label: name,
-      description: proxies?.[name]?.type,
-      meta: <Delay value={current && proxies ? lastDelay(proxies, name, testUrl(current)) : undefined} />,
-    }))
-
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -182,7 +174,7 @@ export function Proxies({ status }: { status?: Status }) {
         </div>
       </header>
       {loadError && <Alert tone="danger" title={t('读取失败', 'Could not load')}>{loadError}</Alert>}
-      {!drawerOpen && actionError && <Alert tone="danger" title={t('操作失败', 'That did not work')}>{actionError}</Alert>}
+      {actionError && <Alert tone="danger" title={t('操作失败', 'That did not work')}>{actionError}</Alert>}
       <section className={styles.card} aria-busy={running && !proxies}>
         {!running
           ? <EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动 RouterClash 后可以在这里选择节点。', 'Start RouterClash to choose nodes here.')} />
@@ -191,43 +183,30 @@ export function Proxies({ status }: { status?: Status }) {
             : groups.length === 0
               ? <EmptyState title={t('没有策略组', 'No proxy groups')} description={t('当前配置没有定义策略组。', 'The current config defines no proxy groups.')} />
               : groups.map(group => (
-                  <div key={group.name} className={styles.row}>
+                  <div key={group.name} className={styles.groupRow}>
                     <div className={styles.rowMain}>
                       <span className={styles.rowName}>{group.name}</span>
-                      <span className={styles.rowMeta}>{typeLabels[group.type] ?? group.type} · {group.now ?? t('未选择', 'None')} · {t(`${group.all?.length ?? 0} 个节点`, `${group.all?.length ?? 0} nodes`)}</span>
+                      <span className={styles.rowMeta}>{typeLabels[group.type] ?? group.type} · {t(`${group.all?.length ?? 0} 个节点`, `${group.all?.length ?? 0} nodes`)}{group.fixed ? ` · ${t('已固定', 'Pinned')}` : ''}</span>
                     </div>
-                    <div className={styles.actions}>
-                      {group.fixed && <Badge>{t('已固定', 'Pinned')}</Badge>}
-                      <Delay value={lastDelay(proxies, group.name, testUrl(group))} />
-                      <Button size="sm" variant="ghost" loading={testing === group.name} onClick={() => void test(group)}>{t('测速', 'Test')}</Button>
-                      <Button size="sm" variant="secondary" onClick={() => openGroup(group.name)}>{canChoose(group) ? t('选择节点', 'Choose node') : t('查看节点', 'View nodes')}</Button>
+                    <MorphSelect
+                      label={t(`${group.name} 使用的节点`, `Node used by ${group.name}`)}
+                      hideLabel
+                      value={group.now ?? null}
+                      placeholder={t('自动分配', 'Automatic')}
+                      searchPlaceholder={t('搜索节点', 'Search nodes')}
+                      panelWidth={320}
+                      disabled={switching === group.name}
+                      items={nodeOptions(proxies, group)}
+                      onValueChange={node => void choose(group, node)}
+                    />
+                    <div><Delay value={lastDelay(proxies, group.name, testUrl(group))} /></div>
+                    <div className={styles.groupActions}>
+                      {group.fixed && <Button size="sm" variant="ghost" disabled={switching === group.name} onClick={() => void unpin(group)}>{t('恢复自动', 'Use automatic')}</Button>}
+                      <Button size="sm" variant="ghost" loading={testing === group.name} disabled={testing !== null && testing !== group.name} onClick={() => void test(group)}>{t('测速', 'Test')}</Button>
                     </div>
                   </div>
                 ))}
       </section>
-
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        {current && (
-          <DrawerContent title={current.name} description={canChoose(current) ? t('选择这个策略组使用的节点。', 'Choose the node this group uses.') : t('负载均衡组会自动分配节点。', 'Load balance groups spread traffic across nodes on their own.')}>
-            <div className={styles.stack}>
-              {actionError && <Alert tone="danger" title={t('操作失败', 'That did not work')}>{actionError}</Alert>}
-              {current.fixed && (
-                <div className={styles.spread}>
-                  <span className={styles.hint}>{t(`已固定到 ${current.fixed}`, `Pinned to ${current.fixed}`)}</span>
-                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => void unpin(current)}>{t('恢复自动选择', 'Return to automatic')}</Button>
-                </div>
-              )}
-              <div className={styles.spread}>
-                <div className={styles.grow}><SearchField label={t('搜索节点', 'Search nodes')} value={query} onValueChange={setQuery} /></div>
-                <Button size="sm" variant="ghost" loading={testing === current.name} onClick={() => void test(current)}>{t('测速', 'Test')}</Button>
-              </div>
-              {options.length === 0
-                ? <EmptyState title={t('没有匹配的节点', 'No matching nodes')} description={t('换个关键词试试。', 'Try another keyword.')} />
-                : <RadioCards aria-label={t('节点', 'Nodes')} layout="list" value={current.now ?? null} disabled={!canChoose(current) || busy} onValueChange={node => void choose(current, node)} options={options} />}
-            </div>
-          </DrawerContent>
-        )}
-      </Drawer>
     </main>
   )
 }

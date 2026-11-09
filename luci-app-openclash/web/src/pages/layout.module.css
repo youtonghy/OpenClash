@@ -29,5 +29,22 @@
 .details dt { color: var(--text-muted); }
 .details dd { margin: 0; color: var(--foreground); overflow-wrap: anywhere; }
 .numeric { font-variant-numeric: tabular-nums; }
-.rowActions { display: flex; justify-content: flex-end; gap: 4px; white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .pair { display: grid; gap: 2px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pair[data-idle] { color: var(--text-muted); }
+.cell, .cellButton { display: grid; gap: 2px; min-width: 0; }
+.cellButton { width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cellMain, .cellSub { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cellSub, .cellPort { color: var(--text-muted); }
+.cellSub { font-size: var(--text-xs); }
+@media (hover: hover) and (pointer: fine) { .cellButton:hover .cellMain { text-decoration: underline; } }
+.groupRow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 17rem) 5.5rem 9.5rem; align-items: center; gap: 16px; padding: 12px 0; border-top: 1px solid var(--border); }
+.groupRow:first-of-type { border-top: 0; }
+.groupRow > * { min-width: 0; justify-self: start; }
+.groupActions { display: flex; justify-content: flex-end; gap: 4px; justify-self: end; }
+@media (max-width: 860px) {
+  .groupRow { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; }
+  .groupRow > :first-child { grid-column: 1 / -1; }
+}
