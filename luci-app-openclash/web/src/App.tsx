@@ -35,10 +35,11 @@ const currentPage = () => {
 function dashboardUrl(status: Status) {
   if (status.dashboard_custom_url && status.dashboard_custom_url !== '0') return status.dashboard_custom_url
   const port = status.cn_port ?? '9090'
-  const name = status.metacubexd ? 'metacubexd' : 'zashboard'
+  const name = status.zashboard ? 'zashboard' : 'metacubexd'
   const host = location.hostname
   const query = new URLSearchParams({ hostname: host, port, secret: status.dase ?? '' })
-  return `${location.protocol}//${host}:${port}/ui/${name}/#/setup?${query}`
+  // the controller port has no TLS listener, even when this page is on https
+  return `http://${host}:${port}/ui/${name}/#/setup?${query}`
 }
 
 export default function App() {

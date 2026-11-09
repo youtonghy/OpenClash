@@ -203,6 +203,11 @@ fi
 [ -n "$(uci -q get openclash.config.kill_switch)" ] || uci -q set openclash.config.kill_switch=1
 [ -n "$(pidof clash)" ] && { mkdir -p /var/run; echo open > /var/run/openclash_ks.state; }
 
+#zashboard replaced metacubexd as the default panel
+case "$(uci -q get openclash.config.default_dashboard)" in
+	""|metacubexd) uci -q set openclash.config.default_dashboard=zashboard ;;
+esac
+
 #Settings dropped by the trimmed build
 uci -q set openclash.config.enable_redirect_dns=2
 [ "$(uci_get_config "log_level")" = "0" ] && uci -q set openclash.config.log_level=warning
