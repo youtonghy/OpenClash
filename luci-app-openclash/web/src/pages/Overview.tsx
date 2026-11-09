@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/arc/button/button'
 import { Badge } from '@/components/arc/badge/badge'
 import { Alert } from '@/components/arc/alert/alert'
@@ -17,43 +17,88 @@ type Memory = { inuse: number }
 type Load = { cpu: string }
 
 const WINDOW = 90
+const CHART_MS = 60000
+const REFRESH_KEY = 'routerclash.overview.refresh'
+/** Measuring core CPU blocks a LuCI request for 200 ms, so it is never polled faster than this. */
+const CPU_POLL_MS = 5000
+const HISTORY = 24
+// download, upload, connections, memory, cpu, total: wide enough for the largest realistic reading
+const TICKER_COLUMNS = 'minmax(128px, 1.1fr) minmax(128px, 1.1fr) minmax(136px, 1fr) minmax(184px, 1.4fr) minmax(140px, 1fr) minmax(120px, .9fr)'
+
+const fixed = (digits: number): Intl.NumberFormatOptions => ({ minimumFractionDigits: digits, maximumFractionDigits: digits, useGrouping: false })
+
+/** Moves to a larger unit before a number reaches four integer digits, so a reading never outgrows its slot. */
+function scale(value: number, units: string[]) {
+  let index = 0
+  let divisor = 1
+  while (value / divisor >= 1024 && index < units.length - 1) {
+    divisor *= 1024
+    index += 1
+  }
+  return { value: value / divisor, unit: units[index], divisor }
+}
+
+const RATE_UNITS = ['kilobyte-per-second', 'megabyte-per-second', 'gigabyte-per-second']
+
+function rateMetric(id: string, label: string, kilobytes: number, points: StreamPoint[]): TickerMetric {
+  const shown = scale(kilobytes, RATE_UNITS)
+  return { id, label, value: shown.value, delta: 'none', format: { ...fixed(1), style: 'unit', unit: shown.unit }, history: points.slice(-HISTORY).map(point => point.value / shown.divisor) }
+}
 
 export function Overview({ status, refresh }: { status?: Status; refresh: () => void }) {
   const running = isRunning(status)
   const [down, setDown] = useState<StreamPoint[]>([])
   const [up, setUp] = useState<StreamPoint[]>([])
-  const [rate, setRate] = useState<Traffic>({ up: 0, down: 0 })
-  const [memory, setMemory] = useState(0)
-  const [totals, setTotals] = useState({ down: 0, up: 0, connections: 0 })
-  const [cpu, setCpu] = useState(0)
+  const [seconds, setSeconds] = useState(() => (localStorage.getItem(REFRESH_KEY) === '5' ? 5 : 1))
+  const [live, setLive] = useState({ up: 0, down: 0, memory: 0, cpu: 0, totalDown: 0, totalUp: 0, connections: 0 })
+  // Streams only write here; one publish per interval moves every reading together.
+  const pending = useRef({ up: 0, down: 0, samples: 0, publishes: 0, memory: 0, cpu: 0, totalDown: 0, totalUp: 0, connections: 0 })
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [confirmStop, setConfirmStop] = useState(false)
 
   useMihomoStream<Traffic>(status, '/traffic', running, data => {
+    const next = pending.current
+    next.up += data.up
+    next.down += data.down
+    next.samples += 1
+    // the first two publish at once, so a 5 second interval does not start with five seconds of zeros
+    if (next.samples < (next.publishes < 2 ? 1 : seconds)) return
     const now = Date.now()
-    setRate(data)
-    setDown(list => [...list.slice(-WINDOW), { t: now, value: data.down / 1024 }])
-    setUp(list => [...list.slice(-WINDOW), { t: now, value: data.up / 1024 }])
+    const up = next.up / next.samples / 1024
+    const down = next.down / next.samples / 1024
+    next.up = next.down = next.samples = 0
+    next.publishes += 1
+    setLive({ up, down, memory: next.memory, cpu: next.cpu, totalDown: next.totalDown, totalUp: next.totalUp, connections: next.connections })
+    setDown(list => [...list.slice(-WINDOW), { t: now, value: down }])
+    setUp(list => [...list.slice(-WINDOW), { t: now, value: up }])
   })
   useMihomoStream<Memory>(status, '/memory', running, data => {
-    if (data.inuse) setMemory(data.inuse)
+    if (data.inuse) pending.current.memory = data.inuse
   })
-  useMihomoStream<Snapshot>(status, '/connections?interval=3000', running, data => {
-    setTotals({ down: data.downloadTotal, up: data.uploadTotal, connections: data.connections?.length ?? 0 })
+  useMihomoStream<Snapshot>(status, `/connections?interval=${seconds * 1000}`, running, data => {
+    Object.assign(pending.current, { totalDown: data.downloadTotal, totalUp: data.uploadTotal, connections: data.connections?.length ?? 0 })
   })
   usePolling(() => {
-    void apiGet<Load>('toolbar_show_sys').then(data => setCpu(Number(data.cpu) || 0)).catch(() => undefined)
-  }, 15000, running)
+    void apiGet<Load>('toolbar_show_sys').then(data => { pending.current.cpu = Number(data.cpu) || 0 }).catch(() => undefined)
+  }, CPU_POLL_MS, running)
 
-  const metrics = useMemo<TickerMetric[]>(() => [
-    { id: 'down', label: t('下载', 'Download'), value: rate.down / 1024, format: { maximumFractionDigits: 0, style: 'unit', unit: 'kilobyte-per-second' } },
-    { id: 'up', label: t('上传', 'Upload'), value: rate.up / 1024, format: { maximumFractionDigits: 0, style: 'unit', unit: 'kilobyte-per-second' } },
-    { id: 'conn', label: t('活动连接', 'Connections'), value: totals.connections },
-    { id: 'mem', label: t('内核内存', 'Core memory'), value: memory / 1048576, format: { maximumFractionDigits: 1, style: 'unit', unit: 'megabyte' }, positive: 'down', delta: 'absolute' },
-    { id: 'cpu', label: t('内核 CPU', 'Core CPU'), value: cpu, format: { maximumFractionDigits: 1, style: 'unit', unit: 'percent' }, positive: 'down', delta: 'absolute' },
-    { id: 'total', label: t('累计下载', 'Total download'), value: totals.down / 1073741824, format: { maximumFractionDigits: 2, style: 'unit', unit: 'gigabyte' } },
-  ], [rate, totals, memory, cpu])
+  const metrics = useMemo<TickerMetric[]>(() => {
+    const total = scale(live.totalDown / 1073741824, ['gigabyte', 'terabyte'])
+    return [
+      rateMetric('down', t('下载', 'Download'), live.down, down),
+      rateMetric('up', t('上传', 'Upload'), live.up, up),
+      { id: 'conn', label: t('活动连接', 'Connections'), value: live.connections, format: { useGrouping: false } },
+      { id: 'mem', label: t('内核内存', 'Core memory'), value: live.memory / 1048576, format: { ...fixed(1), style: 'unit', unit: 'megabyte' }, positive: 'down', delta: 'absolute' },
+      { id: 'cpu', label: t('内核 CPU', 'Core CPU'), value: live.cpu, format: { ...fixed(1), style: 'unit', unit: 'percent' }, positive: 'down', delta: 'absolute' },
+      { id: 'total', label: t('累计下载', 'Total download'), value: total.value, format: { ...fixed(2), style: 'unit', unit: total.unit }, delta: 'none' },
+    ]
+  }, [live, down, up])
+
+  const changeSeconds = (value: string) => {
+    localStorage.setItem(REFRESH_KEY, value)
+    setSeconds(Number(value))
+  }
 
   const run = async (name: string, action: () => Promise<unknown>) => {
     setBusy(name)
@@ -84,6 +129,7 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
           <p className={styles.sub}>{status.run_mode ? t(`运行模式：${status.run_mode}`, `Mode: ${status.run_mode}`) : t('服务未运行', 'Service is stopped')}</p>
         </div>
         <div className={styles.tools}>
+          {running && <SegmentedControl label={t('更新间隔', 'Update interval')} value={String(seconds)} onValueChange={changeSeconds} options={[{ value: '1', label: t('1 秒', '1s') }, { value: '5', label: t('5 秒', '5s') }]} />}
           <Badge tone={running ? 'success' : 'neutral'} dot>{running ? t('运行中', 'Running') : t('已停止', 'Stopped')}</Badge>
           {running
             ? <>
@@ -114,16 +160,16 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
         </Alert>
       )}
 
-      <MetricTicker metrics={metrics} locale={locale} label={t('实时指标', 'Live metrics')} overflow="scroll" />
+      <MetricTicker metrics={metrics} locale={locale} label={t('实时指标', 'Live metrics')} overflow="scroll" columns={TICKER_COLUMNS} />
 
       <section className={styles.two} aria-label={t('实时流量', 'Live traffic')}>
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>{t('下载', 'Download')}</h2>
-          <RealtimeStream points={down} label={t('下载速率', 'Download rate')} unit="KB/s" min={0} windowMs={60000} emptyLabel={running ? t('等待数据', 'Waiting for data') : t('内核未运行', 'Core is stopped')} />
+          <RealtimeStream points={down} label={t('下载速率', 'Download rate')} unit="KB/s" min={0} windowMs={CHART_MS} interval={seconds * 1000} emptyLabel={running ? t('等待数据', 'Waiting for data') : t('内核未运行', 'Core is stopped')} />
         </div>
         <div className={styles.card}>
           <h2 className={styles.cardTitle}>{t('上传', 'Upload')}</h2>
-          <RealtimeStream points={up} label={t('上传速率', 'Upload rate')} unit="KB/s" min={0} windowMs={60000} emptyLabel={running ? t('等待数据', 'Waiting for data') : t('内核未运行', 'Core is stopped')} />
+          <RealtimeStream points={up} label={t('上传速率', 'Upload rate')} unit="KB/s" min={0} windowMs={CHART_MS} interval={seconds * 1000} emptyLabel={running ? t('等待数据', 'Waiting for data') : t('内核未运行', 'Core is stopped')} />
         </div>
       </section>
 
@@ -131,7 +177,7 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
         <div className={styles.header}>
           <div>
             <h2 className={styles.cardTitle}>{t('代理模式', 'Proxy mode')}</h2>
-            <p className={styles.hint}>{t(`累计上传 ${bytes(totals.up)}，累计下载 ${bytes(totals.down)}`, `Uploaded ${bytes(totals.up)}, downloaded ${bytes(totals.down)}`)}</p>
+            <p className={styles.hint}>{t(`累计上传 ${bytes(live.totalUp)}，累计下载 ${bytes(live.totalDown)}`, `Uploaded ${bytes(live.totalUp)}, downloaded ${bytes(live.totalDown)}`)}</p>
           </div>
           <SegmentedControl label={t('代理模式', 'Proxy mode')} options={ruleModes} value={status.rule_mode ?? 'rule'} onValueChange={value => run('mode', () => apiPost('switch_rule_mode', { rule_mode: value }))} />
         </div>

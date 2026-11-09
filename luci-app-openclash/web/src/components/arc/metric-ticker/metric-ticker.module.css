@@ -13,6 +13,12 @@
 .viewport[data-mode="fit"] .track, .viewport[data-mode="scroll"] .track { will-change: auto; }
 .group { display: flex; flex: 1 0 auto; margin: 0; padding: 0; list-style: none; }
 .item { position: relative; display: flex; flex: 1 0 auto; scroll-snap-align: start; }
+/* Fixed slots: the value sits left and the delta right, so neither moves as digits change. */
+.viewport[data-fixed] .track { width: 100%; }
+.viewport[data-fixed] .group { display: grid; flex: 1 0 100%; grid-template-columns: var(--ticker-columns); }
+.viewport[data-fixed] .item { min-width: 0; }
+.viewport[data-fixed] .button { min-width: 0; margin-inline: 2px; padding-inline: 10px; }
+.viewport[data-fixed] .reading { justify-content: space-between; }
 .item + .item::before, .group + .group .item:first-child::before { position: absolute; top: 14px; bottom: 14px; left: 0; width: 1px; background: var(--border); content: ""; }
 
 .button { position: relative; display: grid; width: 100%; align-content: center; gap: 2px; margin: 4px; padding: 8px 14px 9px; border: 0; border-radius: 14px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: background-color var(--duration-fast) var(--ease-standard); }

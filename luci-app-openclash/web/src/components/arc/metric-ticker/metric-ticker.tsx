@@ -13,8 +13,8 @@ export interface TickerMetric {
   value: number;
   /** Number format for the value, such as currency, percent or a unit like millisecond. */
   format?: Intl.NumberFormatOptions;
-  /** How the change is shown: relative to the previous value, or as the raw difference in the metric's own format. */
-  delta?: "percent" | "absolute";
+  /** How the change is shown: relative to the previous value, as the raw difference in the metric's own format, or not at all. */
+  delta?: "percent" | "absolute" | "none";
   /** Which direction is good news. Latency and churn are better going down. */
   positive?: "up" | "down";
   /** Recent values, oldest first, for the sparkline. Leave it out and the ticker keeps its own history from the values it sees. */
@@ -34,6 +34,8 @@ export interface MetricTickerProps {
   /** Points kept for the sparkline when history is not passed. */
   historyLength?: number;
   locale?: string;
+  /** Fixed grid-template-columns for the strip. Each metric then keeps its slot whatever its value is. */
+  columns?: string;
   /** Accessible name of the strip. */
   label?: string;
   className?: string;
@@ -150,6 +152,7 @@ export function MetricTicker({
   flashDuration = 1600,
   historyLength = 24,
   locale = "en-US",
+  columns,
   label = "Live metrics",
   className,
   style,
@@ -372,7 +375,7 @@ export function MetricTicker({
     const flashing = !!change && change.tick > settled;
     const deltaAmount = change ? Math.abs(metric.delta === "absolute" ? change.delta : change.ratio) * format.scale : 0;
     const deltaText = change ? `${format.delta.format(deltaAmount)}${format.suffix}` : "";
-    const spoken = `${metric.label}, ${format.value.format(metric.value)}${change && direction ? `, ${direction > 0 ? "up" : "down"} ${deltaText}` : ""}`;
+    const spoken = `${metric.label}, ${format.value.format(metric.value)}${change && direction && metric.delta !== "none" ? `, ${direction > 0 ? "up" : "down"} ${deltaText}` : ""}`;
     return <li key={metric.id} className={styles.item} data-open={open === metric.id || undefined}>
       <button
         ref={copy ? undefined : node => { if (node) buttons.current.set(metric.id, node); else buttons.current.delete(metric.id); }}
@@ -393,7 +396,7 @@ export function MetricTicker({
         <span className={styles.label}>{metric.label}</span>
         <span className={styles.reading}>
           <span className={styles.value}><RollingNumber value={metric.value} formatter={format.value} reduceMotion={reduceMotion} /></span>
-          <span className={styles.delta} data-tone={good} data-flash={flashing || undefined} data-empty={!change || undefined}>
+          {metric.delta !== "none" && <span className={styles.delta} data-tone={good} data-flash={flashing || undefined} data-empty={!change || undefined}>
             <span className={styles.deltaIcon}>
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.span key={direction} className={styles.deltaGlyph} initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: direction > 0 ? 5 : -5 }} animate={{ opacity: 1, y: 0 }} exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: direction > 0 ? -5 : 5 }} transition={reduceMotion ? { duration: 0 } : motionTokens.spring.snappy}>
@@ -403,7 +406,7 @@ export function MetricTicker({
             </span>
             <span className={styles.deltaText}><RollingNumber value={deltaAmount} formatter={format.delta} reduceMotion={reduceMotion} />{format.suffix && <span className={styles.symbol}>{format.suffix}</span>}</span>
             {change && !reduceMotion && <motion.span key={change.tick} className={styles.pulse} initial={{ opacity: .9, scale: .8 }} animate={{ opacity: 0, scale: 1.25 }} transition={{ duration: .7, ease: motionTokens.ease.enter }} />}
-          </span>
+          </span>}
         </span>
       </button>
     </li>;
@@ -427,6 +430,8 @@ export function MetricTicker({
       ref={viewport}
       className={styles.viewport}
       data-mode={marquee ? "marquee" : overflowing ? "scroll" : "fit"}
+      data-fixed={columns ? "" : undefined}
+      style={columns ? { "--ticker-columns": columns } as CSSProperties : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
