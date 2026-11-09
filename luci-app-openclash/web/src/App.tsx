@@ -65,7 +65,7 @@ export default function App() {
   return (
     <div className={styles.shell}>
       <aside className={styles.side}>
-        <a className={styles.brand} href="#/overview">OpenClash</a>
+        <a className={styles.brand} href="#/overview">RouterClash</a>
         <nav className={styles.nav} aria-label={t('主导航', 'Main')}>
           {nav.map(item => (
             <a key={item.id} href={`#/${item.id}`} className={styles.link} aria-current={page === item.id ? 'page' : undefined}>

@@ -101,7 +101,7 @@ export function Stats({ status }: { status?: Status }) {
       </header>
 
       {!running
-        ? <section className={styles.card}><EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动 OpenClash 后这里会显示实时分流情况。', 'Start OpenClash to see how traffic is routed.')} /></section>
+        ? <section className={styles.card}><EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动 RouterClash 后这里会显示实时分流情况。', 'Start RouterClash to see how traffic is routed.')} /></section>
         : <>
             <section className={styles.card} aria-label={t('流向', 'Flow')}>
               <h2 className={styles.cardTitle}>{t('流量去向', 'Where traffic goes')}</h2>

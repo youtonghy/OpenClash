@@ -31,7 +31,7 @@ endef
 define Package/$(PKG_NAME)
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
-	TITLE:=LuCI support for clash
+	TITLE:=RouterClash, a LuCI app for the mihomo core
 	PKGARCH:=all
 	DEPENDS:=+bash +curl +ca-bundle +ip-full \
 	+ruby +ruby-yaml +kmod-tun +unzip
@@ -39,7 +39,7 @@ define Package/$(PKG_NAME)
 endef
 
 define Package/$(PKG_NAME)/description
-	A LuCI support for clash
+	RouterClash, a LuCI app for the mihomo core
 endef
 
 define Build/Prepare

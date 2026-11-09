@@ -60,7 +60,7 @@ Section: opt
 Maintainer: youtonghy
 Architecture: all
 Installed-Size: $((INSTALLED_SIZE * 1024))
-Description:  A LuCI support for clash
+Description:  RouterClash, a LuCI app for the mihomo core
 S
 
 export COPYFILE_DISABLE=1

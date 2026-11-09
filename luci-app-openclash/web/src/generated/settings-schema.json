@@ -97,7 +97,7 @@
    ],
    "depends": [],
    "desc": "选择运行模式，如客户端的网络异常请尝试清除 DNS 缓存",
-   "descEn": "Select Mode For OpenClash Work, Try Flush DNS Cache If Network Error",
+   "descEn": "Select Mode For RouterClash Work, Try Flush DNS Cache If Network Error",
    "default": "fake-ip"
   },
   {
@@ -404,8 +404,8 @@
    "type": "Flag",
    "title": "断网保护",
    "titleEn": "Kill switch",
-   "desc": "OpenClash 意外停止时阻断局域网设备直连外网，防止流量绕过代理。手动点“停止”不受影响。",
-   "descEn": "Blocks LAN devices from reaching the internet directly if OpenClash stops unexpectedly. Stopping it yourself is not affected.",
+   "desc": "RouterClash 意外停止时阻断局域网设备直连外网，防止流量绕过代理。手动点“停止”不受影响。",
+   "descEn": "Blocks LAN devices from reaching the internet directly if RouterClash stops unexpectedly. Stopping it yourself is not affected.",
    "default": "1",
    "values": [],
    "depends": []
@@ -538,7 +538,7 @@
    "values": [],
    "depends": [],
    "desc": "定时重启插件",
-   "descEn": "Auto Restart OpenClash",
+   "descEn": "Auto Restart RouterClash",
    "default": "0"
   },
   {
@@ -790,8 +790,8 @@
    "values": [],
    "depends": [],
    "placeholder": "https://board.example.com/ or http://192.168.1.1:9090 or https://[2001:db8::1]:8443",
-   "desc": "可选的外部 Dashboard 完整 HTTP(S) URL。OpenClash 会追加 hostname、port 和 secret 参数，不会添加本地 UI 路径；如果面板需要 Hash 路由，请在 URL 中包含类似 #/setup 的路由。",
-   "descEn": "Optional complete HTTP(S) URL for an externally hosted Dashboard. OpenClash appends hostname, port and secret parameters without adding a local UI path. Include a hash route such as #/setup in the URL when required by the panel."
+   "desc": "可选的外部 Dashboard 完整 HTTP(S) URL。RouterClash 会追加 hostname、port 和 secret 参数，不会添加本地 UI 路径；如果面板需要 Hash 路由，请在 URL 中包含类似 #/setup 的路由。",
+   "descEn": "Optional complete HTTP(S) URL for an externally hosted Dashboard. RouterClash appends hostname, port and secret parameters without adding a local UI path. Include a hash route such as #/setup in the URL when required by the panel."
   },
   {
    "key": "dashboard_custom_clash_compatible",
@@ -1090,7 +1090,7 @@
    ],
    "depends": [],
    "desc": "使用指定代理（CDN）反代插件和配置文件中的 GitHub 地址，以防止文件下载失败。 格式参考：",
-   "descEn": "Proxy The GitHub Address In The Config And OpenClash With Proxy(CDN) To Prevent File Download Failed. Format Reference:",
+   "descEn": "Proxy The GitHub Address In The Config And RouterClash With Proxy(CDN) To Prevent File Download Failed. Format Reference:",
    "default": "0"
   },
   {

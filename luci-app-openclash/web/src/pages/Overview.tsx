@@ -98,7 +98,7 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
 
       {status.kill_switch_state === 'blocked' && (
         <Alert tone="danger" title={t('断网保护已生效', 'Kill switch is active')}>
-          <p className={styles.hint}>{t('OpenClash 没有运行，局域网设备已暂时不能访问外网，防止流量绕过代理。', 'OpenClash is not running, so LAN devices cannot reach the internet. This keeps traffic from bypassing the proxy.')}</p>
+          <p className={styles.hint}>{t('RouterClash 没有运行，局域网设备已暂时不能访问外网，防止流量绕过代理。', 'RouterClash is not running, so LAN devices cannot reach the internet. This keeps traffic from bypassing the proxy.')}</p>
           <div className={styles.actions}>
             <Button size="sm" loading={busy === 'start'} onClick={() => run('start', () => service('restart'))}>{t('重新启动', 'Start again')}</Button>
             <Button size="sm" variant="secondary" loading={busy === 'bypass'} onClick={() => run('bypass', () => apiPost('kill_switch_action', { action: 'bypass' }))}>{t('临时放行', 'Allow direct access for now')}</Button>
@@ -107,7 +107,7 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
       )}
       {status.kill_switch_state === 'bypass' && (
         <Alert tone="warning" title={t('断网保护已临时放行', 'Kill switch is bypassed')}>
-          <p className={styles.hint}>{t('局域网设备现在可能直连外网。OpenClash 成功启动后会自动恢复保护。', 'LAN devices may reach the internet directly. Protection returns when OpenClash starts.')}</p>
+          <p className={styles.hint}>{t('局域网设备现在可能直连外网。RouterClash 成功启动后会自动恢复保护。', 'LAN devices may reach the internet directly. Protection returns when RouterClash starts.')}</p>
           <div className={styles.actions}>
             <Button size="sm" variant="secondary" loading={busy === 'resume'} onClick={() => run('resume', () => apiPost('kill_switch_action', { action: 'resume' }))}>{t('恢复保护', 'Turn protection back on')}</Button>
           </div>
@@ -138,7 +138,7 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
       </section>
 
       <Dialog open={confirmStop} onOpenChange={setConfirmStop}>
-        <DialogContent title={t('停止 OpenClash？', 'Stop OpenClash?')} description={t('停止后局域网设备将不再经过代理。', 'Devices on your network will stop using the proxy.')}>
+        <DialogContent title={t('停止 RouterClash？', 'Stop RouterClash?')} description={t('停止后局域网设备将不再经过代理。', 'Devices on your network will stop using the proxy.')}>
           <div className={styles.actions}>
             <Button variant="secondary" onClick={() => setConfirmStop(false)}>{t('取消', 'Cancel')}</Button>
             <Button loading={busy === 'stop'} onClick={() => { setConfirmStop(false); void run('stop', () => service('stop')) }}>{t('停止', 'Stop')}</Button>

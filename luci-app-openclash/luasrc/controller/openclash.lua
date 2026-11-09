@@ -13,7 +13,7 @@ function index()
 		return
 	end
 
-	local page = entry({"admin", "services", "openclash"}, template("openclash/app"), _("OpenClash"), 50)
+	local page = entry({"admin", "services", "openclash"}, template("openclash/app"), _("RouterClash"), 50)
 	page.dependent = true
 	page.acl_depends = { "luci-app-openclash" }
 

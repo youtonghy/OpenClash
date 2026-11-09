@@ -49,7 +49,7 @@ export function Providers({ status }: { status?: Status }) {
       {error && <Alert tone="danger" title={t('读取失败', 'Could not load')}>{error}</Alert>}
       <section className={styles.card}>
         {!running
-          ? <EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动后可查看并更新规则集。', 'Start OpenClash to view and update providers.')} />
+          ? <EmptyState title={t('内核未运行', 'Core is stopped')} description={t('启动后可查看并更新规则集。', 'Start RouterClash to view and update providers.')} />
           : <div className={styles.tableScroll}>
               <SortableDataTable
                 rows={rows}

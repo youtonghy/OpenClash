@@ -1,4 +1,4 @@
-# OpenClash web app
+# RouterClash web app
 
 The LuCI pages of this package are a React app built from this directory. The router only serves
 the built files; Node is not needed on the device.
@@ -23,14 +23,14 @@ commit the result whenever `src/` changes.
 
 ## Kill switch
 
-`root/usr/share/openclash/openclash_killswitch.sh` keeps LAN devices from going direct while OpenClash
+`root/usr/share/openclash/openclash_killswitch.sh` keeps LAN devices from going direct while RouterClash
 should be proxying but is not. It is on by default (`kill_switch` in UCI).
 
 - A blackhole fallback in policy table 354 catches marked traffic the moment `utun` disappears.
 - A separate firewall chain (fw3) or table (fw4) rejects LAN to internet traffic while the proxy rules
   are absent. It is also a firewall include, so it applies from boot.
 - The router itself, the admin pages, private ranges, VPN interfaces and devices listed as not proxied
-  are left alone. Stopping OpenClash from the page releases the block.
+  are left alone. Stopping RouterClash from the page releases the block.
 
 Escape hatches: the "allow direct access" button on the overview page, the setting, or
 `openclash_killswitch.sh bypass` over SSH.
