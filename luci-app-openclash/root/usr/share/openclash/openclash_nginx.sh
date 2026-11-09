@@ -1,13 +1,22 @@
 #!/bin/sh
 # Same-origin reverse proxy for the mihomo control API (https://<luci host>/oc-api/, see
-# ocGetDashboardApiOrigin in common.js), an https page cannot open ws://. -n skips the
+# controllerBase in src/lib/mihomo.ts), an https page cannot open ws://. -n skips the
 # reload for callers that reload nginx themselves.
 
 [ -d /etc/nginx/conf.d ] || exit 0
 
 PORT=$(uci -q get openclash.config.cn_port)
 [ -n "$PORT" ] || PORT=9090
-FILE=/etc/nginx/conf.d/openclash.locations
+# Where the location block has to land: luci-nginx includes conf.d/*.locations from its server
+# block, the GL.iNet nginx (gl.conf) includes gl-conf.d/*.conf instead.
+if [ -d /etc/nginx/gl-conf.d ]; then
+	FILE=/etc/nginx/gl-conf.d/openclash.conf
+	ALT=/etc/nginx/conf.d/openclash.locations
+else
+	FILE=/etc/nginx/conf.d/openclash.locations
+	ALT=/etc/nginx/gl-conf.d/openclash.conf
+fi
+rm -f "$ALT" >/dev/null 2>&1
 
 NEW=$(cat <<EOF
 location /oc-api/ {
