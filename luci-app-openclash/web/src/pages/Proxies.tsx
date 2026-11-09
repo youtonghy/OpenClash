@@ -7,24 +7,9 @@ import { MorphSelect, type MorphSelectOption } from '@/components/arc/morph-sele
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import { isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
-import { mihomoFetch, usePolling, type Snapshot } from '@/lib/mihomo'
+import { mihomoFetch, proxyGroups, usePolling, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
 import styles from './layout.module.css'
 
-type History = { delay: number }[]
-type ProxyNode = {
-  name: string
-  type: string
-  now?: string
-  all?: string[]
-  hidden?: boolean
-  fixed?: string
-  testUrl?: string
-  history?: History
-  extra?: Record<string, { history?: History }>
-}
-type ProxyMap = Record<string, ProxyNode>
-
-const GLOBAL = 'GLOBAL'
 const TEST_URL = 'https://www.gstatic.com/generate_204'
 const TEST_TIMEOUT = 5000
 
@@ -86,18 +71,7 @@ export function Proxies({ status }: { status?: Status }) {
   }, [status])
   usePolling(load, 15000, running)
 
-  const groups = useMemo(() => {
-    if (!proxies) return []
-    const order = proxies[GLOBAL]?.all ?? []
-    const rank = (name: string) => {
-      const index = order.indexOf(name)
-      return index === -1 ? order.length : index
-    }
-    const showGlobal = status?.rule_mode === 'global'
-    return Object.values(proxies)
-      .filter(item => item.all?.length && !item.hidden && (item.name !== GLOBAL || showGlobal))
-      .sort((a, b) => (a.name === GLOBAL ? -1 : b.name === GLOBAL ? 1 : rank(a.name) - rank(b.name)))
-  }, [proxies, status?.rule_mode])
+  const groups = useMemo(() => (proxies ? proxyGroups(proxies, status?.rule_mode === 'global') : []), [proxies, status?.rule_mode])
 
   const fail = (err: unknown) => setActionError((err as Error).message)
 

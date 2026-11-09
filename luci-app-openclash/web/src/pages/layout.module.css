@@ -49,3 +49,6 @@
   .groupRow { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; }
   .groupRow > :first-child { grid-column: 1 / -1; }
 }
+.quota { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; }
+.quotaGauge { width: 176px; max-width: 100%; }
+.quota .details { flex: 1 1 160px; }

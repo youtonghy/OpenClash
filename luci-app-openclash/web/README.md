@@ -22,6 +22,8 @@ commit the result whenever `src/` changes.
   through `/oc-api` when nginx provides it and otherwise on the controller port.
 - `device_names` maps LAN addresses to device names (DHCP settings, leases and the neighbour table) for
   the connections page. Addresses without a name are shown shortened in a pill.
+- The statistics page charts live data only. Availability uses the last ten test results mihomo keeps per
+  node, and the traffic globe reads each exit place from the node's flag or region name.
 - Choosing a node on the proxy groups page closes that group's connections, so they reconnect through
   the new node. Testing a pinned automatic group re-pins it, because the controller clears the pin.
 

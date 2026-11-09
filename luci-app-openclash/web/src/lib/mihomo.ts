@@ -24,6 +24,34 @@ export type Connection = {
   }
 }
 
+export type ProxyHistory = { time?: string; delay: number }[]
+export type ProxyNode = {
+  name: string
+  type: string
+  now?: string
+  all?: string[]
+  hidden?: boolean
+  fixed?: string
+  testUrl?: string
+  history?: ProxyHistory
+  extra?: Record<string, { history?: ProxyHistory }>
+}
+export type ProxyMap = Record<string, ProxyNode>
+
+const GLOBAL = 'GLOBAL'
+
+/** Proxy groups in config order. GLOBAL only matters in global mode, so it is listed first and only then. */
+export function proxyGroups(proxies: ProxyMap, showGlobal = false) {
+  const order = proxies[GLOBAL]?.all ?? []
+  const rank = (name: string) => {
+    const index = order.indexOf(name)
+    return index === -1 ? order.length : index
+  }
+  return Object.values(proxies)
+    .filter(item => item.all?.length && !item.hidden && (item.name !== GLOBAL || showGlobal))
+    .sort((a, b) => (a.name === GLOBAL ? -1 : b.name === GLOBAL ? 1 : rank(a.name) - rank(b.name)))
+}
+
 export type Snapshot = { downloadTotal: number; uploadTotal: number; connections: Connection[]; memory?: number }
 
 /** nginx installs expose the controller under /oc-api; plain uhttpd installs reach it on its port. */

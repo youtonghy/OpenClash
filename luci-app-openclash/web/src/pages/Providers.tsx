@@ -2,10 +2,10 @@ import { useCallback, useState } from 'react'
 import { Alert } from '@/components/arc/alert/alert'
 import { Button } from '@/components/arc/button/button'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
+import { Gauge } from '@/components/arc/gauge/gauge'
 import { SortableDataTable } from '@/components/arc/sortable-data-table/sortable-data-table'
-import { SplitBar } from '@/components/arc/split-bar/split-bar'
-import { isRunning, type Status } from '@/lib/api'
-import { locale, t } from '@/lib/i18n'
+import { bytes, isRunning, type Status } from '@/lib/api'
+import { t } from '@/lib/i18n'
 import { mihomoFetch, usePolling } from '@/lib/mihomo'
 import styles from './layout.module.css'
 
@@ -15,7 +15,6 @@ type ProxyProvider = { name: string; vehicleType: string; proxies?: { history?: 
 type Row = { name: string; info: string; count: number; updated: string; vehicle: string }
 type Kind = 'proxies' | 'rules'
 
-const GB = 1024 ** 3
 const when = (value?: string) => (value && !value.startsWith('0001') ? new Date(value).toLocaleString() : '')
 const target = (kind: Kind, name: string) => `/providers/${kind}/${encodeURIComponent(name)}`
 const key = (kind: Kind, name: string) => `${kind}/${name}`
@@ -127,18 +126,25 @@ export function Providers({ status }: { status?: Status }) {
                             </div>
                           </div>
                           {!!info?.Total && (
-                            <SplitBar
-                              title={t('订阅流量', 'Subscription traffic')}
-                              locale={locale}
-                              unit="GB"
-                              totalLabel={t('总量', 'Total')}
-                              format={{ maximumFractionDigits: 1 }}
-                              segments={[
-                                { id: 'download', label: t('已下载', 'Downloaded'), value: info.Download / GB },
-                                { id: 'upload', label: t('已上传', 'Uploaded'), value: info.Upload / GB },
-                                { id: 'free', label: t('剩余', 'Remaining'), value: Math.max(0, info.Total - info.Upload - info.Download) / GB },
-                              ]}
-                            />
+                            <div className={styles.quota}>
+                              <div className={styles.quotaGauge}>
+                                <Gauge
+                                  label={t('已用流量', 'Traffic used')}
+                                  value={Math.min(100, (info.Upload + info.Download) / info.Total * 100)}
+                                  detail={`${bytes(info.Upload + info.Download)} / ${bytes(info.Total)}`}
+                                  thresholds={[
+                                    { from: 0, tone: 'success', label: t('充足', 'Plenty left') },
+                                    { from: 70, tone: 'warning', label: t('偏高', 'Running low') },
+                                    { from: 90, tone: 'danger', label: t('即将用完', 'Almost used up') },
+                                  ]}
+                                />
+                              </div>
+                              <dl className={styles.details}>
+                                <dt>{t('已下载', 'Downloaded')}</dt><dd>{bytes(info.Download)}</dd>
+                                <dt>{t('已上传', 'Uploaded')}</dt><dd>{bytes(info.Upload)}</dd>
+                                <dt>{t('剩余', 'Remaining')}</dt><dd>{bytes(Math.max(0, info.Total - info.Upload - info.Download))}</dd>
+                              </dl>
+                            </div>
                           )}
                           {!!info?.Expire && <p className={styles.hint}>{t(`到期时间：${new Date(info.Expire * 1000).toLocaleDateString()}`, `Expires ${new Date(info.Expire * 1000).toLocaleDateString()}`)}</p>}
                         </div>
