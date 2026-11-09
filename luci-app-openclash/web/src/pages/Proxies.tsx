@@ -7,7 +7,7 @@ import { MorphSelect, type MorphSelectOption } from '@/components/arc/morph-sele
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import { isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
-import { mihomoFetch, proxyGroups, usePolling, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
+import { fetchProxies, mihomoFetch, proxyGroups, usePolling, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
 import styles from './layout.module.css'
 
 const TEST_URL = 'https://www.gstatic.com/generate_204'
@@ -62,9 +62,9 @@ export function Proxies({ status }: { status?: Status }) {
 
   const load = useCallback(() => {
     if (!status) return Promise.resolve()
-    return mihomoFetch<{ proxies: ProxyMap }>(status, '/proxies')
+    return fetchProxies(status)
       .then(data => {
-        setProxies(data.proxies)
+        setProxies(data)
         setLoadError(null)
       })
       .catch(err => setLoadError((err as Error).message))

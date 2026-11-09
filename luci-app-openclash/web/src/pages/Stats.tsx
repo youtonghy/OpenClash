@@ -11,7 +11,7 @@ import { SplitBar, type SplitSegment } from '@/components/arc/split-bar/split-ba
 import { SortableDataTable } from '@/components/arc/sortable-data-table/sortable-data-table'
 import { bytes, isRunning, type Status } from '@/lib/api'
 import { locale, t } from '@/lib/i18n'
-import { mihomoFetch, proxyGroups, useMihomoStream, usePolling, type Connection, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
+import { fetchProxies, proxyGroups, useMihomoStream, usePolling, type Connection, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
 import styles from './layout.module.css'
 
 type Measure = 'traffic' | 'count'
@@ -138,9 +138,9 @@ export function Stats({ status }: { status?: Status }) {
 
   const loadProxies = useCallback(() => {
     if (!status) return
-    mihomoFetch<{ proxies: ProxyMap }>(status, '/proxies')
+    fetchProxies(status)
       .then(data => {
-        setProxies(data.proxies)
+        setProxies(data)
         setProxiesError(null)
       })
       .catch(err => setProxiesError((err as Error).message))

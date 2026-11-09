@@ -78,6 +78,16 @@ export async function mihomoFetch<T>(status: Status, path: string, init: Request
   return (response.status === 204 ? undefined : await response.json()) as T
 }
 
+/** /proxies leaves out nodes that come from providers, so they are merged in from /providers/proxies. */
+export async function fetchProxies(status: Status): Promise<ProxyMap> {
+  const [groups, providers] = await Promise.all([
+    mihomoFetch<{ proxies: ProxyMap }>(status, '/proxies'),
+    mihomoFetch<{ providers: Record<string, { proxies?: ProxyNode[] }> }>(status, '/providers/proxies'),
+  ])
+  const nodes = Object.values(providers.providers).flatMap(provider => provider.proxies ?? [])
+  return { ...Object.fromEntries(nodes.map(node => [node.name, node])), ...groups.proxies }
+}
+
 /** Subscribes to a controller stream while the core runs. Stops when the tab is hidden. */
 export function useMihomoStream<T>(status: Status | undefined, path: string, enabled: boolean, onMessage: (data: T) => void) {
   const handler = useRef(onMessage)
