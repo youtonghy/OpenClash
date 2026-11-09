@@ -1,12 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
+import { Play, RotateCw, Square } from 'lucide-react'
 import { Button } from '@/components/arc/button/button'
 import { Badge } from '@/components/arc/badge/badge'
 import { Alert } from '@/components/arc/alert/alert'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import { Dialog, DialogContent } from '@/components/arc/dialog/dialog'
+import { MorphSelect } from '@/components/arc/morph-select/morph-select'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
 import { MetricTicker, type TickerMetric } from '@/components/arc/metric-ticker/metric-ticker'
 import { RealtimeStream, type StreamPoint } from '@/components/arc/realtime-stream/realtime-stream'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost, bytes, isRunning, service, type Status } from '@/lib/api'
 import { locale, t } from '@/lib/i18n'
 import { useMihomoStream, usePolling, type Snapshot } from '@/lib/mihomo'
@@ -129,14 +132,27 @@ export function Overview({ status, refresh }: { status?: Status; refresh: () => 
           <p className={styles.sub}>{status.run_mode ? t(`运行模式：${status.run_mode}`, `Mode: ${status.run_mode}`) : t('服务未运行', 'Service is stopped')}</p>
         </div>
         <div className={styles.tools}>
-          {running && <SegmentedControl label={t('更新间隔', 'Update interval')} value={String(seconds)} onValueChange={changeSeconds} options={[{ value: '1', label: t('1 秒', '1s') }, { value: '5', label: t('5 秒', '5s') }]} />}
+          {running && (
+            <MorphSelect
+              label={t('刷新间隔', 'Refresh interval')}
+              hideLabel
+              align="end"
+              searchable={false}
+              panelWidth={180}
+              value={String(seconds)}
+              items={[{ value: '1', label: t('每 1 秒刷新', 'Every 1s') }, { value: '5', label: t('每 5 秒刷新', 'Every 5s') }]}
+              onValueChange={changeSeconds}
+            />
+          )}
+          <div className={styles.actions}>
+            {running
+              ? <>
+                  <IconButton variant="secondary" label={t('重启', 'Restart')} icon={<RotateCw />} loading={busy === 'restart'} onClick={() => run('restart', () => service('restart'))} />
+                  <IconButton variant="secondary" label={t('停止', 'Stop')} icon={<Square />} onClick={() => setConfirmStop(true)} />
+                </>
+              : <IconButton label={t('启动', 'Start')} icon={<Play />} loading={busy === 'start'} onClick={() => run('start', () => service('start'))} />}
+          </div>
           <Badge tone={running ? 'success' : 'neutral'} dot>{running ? t('运行中', 'Running') : t('已停止', 'Stopped')}</Badge>
-          {running
-            ? <>
-                <Button variant="secondary" loading={busy === 'restart'} onClick={() => run('restart', () => service('restart'))}>{t('重启', 'Restart')}</Button>
-                <Button variant="secondary" onClick={() => setConfirmStop(true)}>{t('停止', 'Stop')}</Button>
-              </>
-            : <Button loading={busy === 'start'} onClick={() => run('start', () => service('start'))}>{t('启动', 'Start')}</Button>}
         </div>
       </header>
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ArrowRightLeft, Pencil, Plus, RefreshCw, Save, Upload } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
 import { Badge } from '@/components/arc/badge/badge'
 import { Button } from '@/components/arc/button/button'
@@ -6,6 +7,7 @@ import { Dialog, DialogContent } from '@/components/arc/dialog/dialog'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
 import { Input } from '@/components/arc/input/input'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost, apiUpload, bytes, type ConfigFile } from '@/lib/api'
 import { Editor } from '@/lib/Editor'
 import { t } from '@/lib/i18n'
@@ -78,8 +80,8 @@ export function Config() {
         <header className={styles.header}>
           <h1 className={styles.title}>{editing.name}</h1>
           <div className={styles.tools}>
-            <Button variant="secondary" onClick={() => setEditing(null)}>{t('返回', 'Back')}</Button>
-            <Button loading={saving} onClick={save}>{t('保存', 'Save')}</Button>
+            <IconButton variant="secondary" label={t('返回', 'Back')} icon={<ArrowLeft />} onClick={() => setEditing(null)} />
+            <IconButton label={t('保存', 'Save')} icon={<Save />} loading={saving} onClick={save} />
           </div>
         </header>
         {note && <Alert tone={note.tone} title={note.text} />}
@@ -94,8 +96,8 @@ export function Config() {
         <h1 className={styles.title}>{t('配置文件', 'Config files')}</h1>
         <div className={styles.tools}>
           <input ref={upload} type="file" accept=".yaml,.yml" hidden onChange={event => { onUpload(event.target.files?.[0]); event.target.value = '' }} />
-          <Button variant="secondary" onClick={() => setAdding(true)}>{t('添加订阅', 'Add subscription')}</Button>
-          <Button onClick={() => upload.current?.click()}>{t('上传配置', 'Upload config')}</Button>
+          <IconButton variant="secondary" label={t('添加订阅', 'Add subscription')} icon={<Plus />} onClick={() => setAdding(true)} />
+          <IconButton label={t('上传配置', 'Upload config')} icon={<Upload />} onClick={() => upload.current?.click()} />
         </div>
       </header>
       {note && <Alert tone={note.tone} title={note.text} />}
@@ -112,9 +114,9 @@ export function Config() {
                   </div>
                   <div className={styles.actions}>
                     {current && <Badge tone="success" dot>{t('使用中', 'In use')}</Badge>}
-                    <Button size="sm" variant="secondary" onClick={() => open(file)}>{t('编辑', 'Edit')}</Button>
-                    {!current && <Button size="sm" variant="secondary" onClick={() => action(apiPost('switch_config', { config_file: file.path }), t('已切换，正在重启', 'Switched. Restarting.'))}>{t('切换', 'Use')}</Button>}
-                    <Button size="sm" variant="ghost" onClick={() => action(apiPost('update_config', { filename: file.name }), t('已开始更新', 'Update started'))}>{t('更新', 'Update')}</Button>
+                    <IconButton size="sm" variant="secondary" label={t('编辑', 'Edit')} icon={<Pencil />} onClick={() => open(file)} />
+                    {!current && <IconButton size="sm" variant="secondary" label={t('切换', 'Use')} icon={<ArrowRightLeft />} onClick={() => action(apiPost('switch_config', { config_file: file.path }), t('已切换，正在重启', 'Switched. Restarting.'))} />}
+                    <IconButton size="sm" variant="ghost" label={t('更新', 'Update')} icon={<RefreshCw />} onClick={() => action(apiPost('update_config', { filename: file.name }), t('已开始更新', 'Update started'))} />
                   </div>
                 </div>
               )

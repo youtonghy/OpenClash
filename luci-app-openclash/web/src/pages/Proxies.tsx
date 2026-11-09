@@ -1,10 +1,11 @@
 import { useCallback, useMemo, useState } from 'react'
+import { PinOff, Zap } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
 import { Badge } from '@/components/arc/badge/badge'
-import { Button } from '@/components/arc/button/button'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
 import { MorphSelect, type MorphSelectOption } from '@/components/arc/morph-select/morph-select'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
+import { IconButton } from '@/components/IconButton'
 import { isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { fetchProxies, mihomoFetch, proxyGroups, usePolling, type ProxyMap, type ProxyNode, type Snapshot } from '@/lib/mihomo'
@@ -175,8 +176,8 @@ export function Proxies({ status }: { status?: Status }) {
                     />
                     <div><Delay value={lastDelay(proxies, group.name, testUrl(group))} /></div>
                     <div className={styles.groupActions}>
-                      {group.fixed && <Button size="sm" variant="ghost" disabled={switching === group.name} onClick={() => void unpin(group)}>{t('恢复自动', 'Use automatic')}</Button>}
-                      <Button size="sm" variant="ghost" loading={testing === group.name} disabled={testing !== null && testing !== group.name} onClick={() => void test(group)}>{t('测速', 'Test')}</Button>
+                      {group.fixed && <IconButton size="sm" variant="ghost" label={t('恢复自动', 'Use automatic')} icon={<PinOff />} disabled={switching === group.name} onClick={() => void unpin(group)} />}
+                      <IconButton size="sm" variant="ghost" label={t('测速', 'Test')} icon={<Zap />} loading={testing === group.name} disabled={testing !== null && testing !== group.name} onClick={() => void test(group)} />
                     </div>
                   </div>
                 ))}

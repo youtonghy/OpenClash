@@ -49,6 +49,16 @@
   .groupRow { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px 12px; }
   .groupRow > :first-child { grid-column: 1 / -1; }
 }
-.quota { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 32px; }
+.quota { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
 .quotaGauge { width: 176px; max-width: 100%; }
-.quota .details { flex: 1 1 160px; }
+.quota .details { flex: 1 1 140px; }
+/* Cards in a row end level, whatever each one has to show: the head stays put and the body centers in what is left. */
+.equal { align-items: stretch; }
+.equal > .card { grid-template-rows: auto 1fr; }
+.equal .quota { align-content: center; }
+.equal .spread { flex-wrap: nowrap; }
+.equal .spread .rowMain { flex: 1 1 0; }
+.unlimited { display: grid; justify-items: center; gap: 3px; text-align: center; }
+.unlimitedMark { color: var(--foreground); font-family: var(--font-display); font-size: var(--text-3xl); font-weight: 500; line-height: 1; }
+/* Hairline rows on one surface: the tightest way to list items that have no body. */
+.list { gap: 0; padding-block: 12px; }

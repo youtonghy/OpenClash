@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Button } from '@/components/arc/button/button'
+import { Eraser } from 'lucide-react'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { usePolling } from '@/lib/mihomo'
@@ -20,7 +21,7 @@ export function Logs() {
         <h1 className={styles.title}>{t('日志', 'Logs')}</h1>
         <div className={styles.tools}>
           <SegmentedControl label={t('日志类型', 'Log type')} value={kind} onValueChange={value => setKind(value as 'oc' | 'core')} options={[{ value: 'oc', label: t('插件', 'Plugin') }, { value: 'core', label: t('内核', 'Core') }]} />
-          <Button variant="secondary" onClick={() => apiPost('del_log', { type: kind === 'oc' ? 'oclog' : 'corelog' }).then(() => load())}>{t('清空', 'Clear')}</Button>
+          <IconButton variant="secondary" label={t('清空', 'Clear')} icon={<Eraser />} onClick={() => apiPost('del_log', { type: kind === 'oc' ? 'oclog' : 'corelog' }).then(() => load())} />
         </div>
       </header>
       <section className={styles.card}><pre className={styles.log}>{text || t('暂无日志', 'No log entries')}</pre></section>

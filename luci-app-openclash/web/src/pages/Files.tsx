@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { RotateCw, Save } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
-import { Button } from '@/components/arc/button/button'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost, service } from '@/lib/api'
 import { Editor } from '@/lib/Editor'
 import { t } from '@/lib/i18n'
@@ -52,8 +53,8 @@ export function Files() {
       <header className={styles.header}>
         <h1 className={styles.title}>{t('自定义文件', 'Custom files')}</h1>
         <div className={styles.tools}>
-          <Button variant="secondary" loading={saving === 'save'} onClick={() => save(false)}>{t('保存', 'Save')}</Button>
-          <Button loading={saving === 'apply'} onClick={() => save(true)}>{t('保存并重启', 'Save and restart')}</Button>
+          <IconButton variant="secondary" label={t('保存', 'Save')} icon={<Save />} loading={saving === 'save'} onClick={() => save(false)} />
+          <IconButton label={t('保存并重启', 'Save and restart')} icon={<RotateCw />} loading={saving === 'apply'} onClick={() => save(true)} />
         </div>
       </header>
       {note && <Alert tone={note.tone} title={note.text} />}

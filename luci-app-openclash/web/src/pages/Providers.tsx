@@ -1,9 +1,10 @@
 import { useCallback, useState } from 'react'
+import { RefreshCw, Zap } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
-import { Button } from '@/components/arc/button/button'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
 import { Gauge } from '@/components/arc/gauge/gauge'
 import { SortableDataTable } from '@/components/arc/sortable-data-table/sortable-data-table'
+import { IconButton } from '@/components/IconButton'
 import { bytes, isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { mihomoFetch, usePolling } from '@/lib/mihomo'
@@ -26,6 +27,40 @@ function summary(provider: ProxyProvider) {
   if (tested) parts.push(t(`${nodes.filter(node => node.alive).length} 个可用`, `${nodes.filter(node => node.alive).length} available`))
   if (when(provider.updatedAt)) parts.push(t(`更新于 ${when(provider.updatedAt)}`, `Updated ${when(provider.updatedAt)}`))
   return parts.join(' · ')
+}
+
+/** mihomo omits subscriptionInfo when the provider sent no usage header. Inside it, a total of 0 means no traffic cap and an expire of 0 means no end date. */
+function Usage({ info }: { info: Subscription }) {
+  const limited = info.Total > 0
+  const used = info.Upload + info.Download
+  return (
+    <div className={styles.quota}>
+      <div className={styles.quotaGauge}>
+        {limited
+          ? <Gauge
+              label={t('已用流量', 'Traffic used')}
+              value={Math.min(100, used / info.Total * 100)}
+              detail={`${bytes(used)} / ${bytes(info.Total)}`}
+              thresholds={[
+                { from: 0, tone: 'success', label: t('充足', 'Plenty left') },
+                { from: 70, tone: 'warning', label: t('偏高', 'Running low') },
+                { from: 90, tone: 'danger', label: t('即将用完', 'Almost used up') },
+              ]}
+            />
+          : <div className={styles.unlimited}>
+              <span className={styles.unlimitedMark} aria-hidden="true">∞</span>
+              <span className={styles.rowName}>{t('无限流量', 'Unlimited traffic')}</span>
+              <span className={styles.rowMeta}>{t(`已用 ${bytes(used)}`, `${bytes(used)} used`)}</span>
+            </div>}
+      </div>
+      <dl className={styles.details}>
+        <dt>{t('已下载', 'Downloaded')}</dt><dd>{bytes(info.Download)}</dd>
+        <dt>{t('已上传', 'Uploaded')}</dt><dd>{bytes(info.Upload)}</dd>
+        {limited && <><dt>{t('剩余', 'Remaining')}</dt><dd>{bytes(Math.max(0, info.Total - used))}</dd></>}
+        <dt>{t('到期时间', 'Expires')}</dt><dd>{info.Expire > 0 ? new Date(info.Expire * 1000).toLocaleDateString() : t('长期有效', 'Never')}</dd>
+      </dl>
+    </div>
+  )
 }
 
 export function Providers({ status }: { status?: Status }) {
@@ -93,6 +128,22 @@ export function Providers({ status }: { status?: Status }) {
     if (failed.length) setError(t(`更新失败：${failed.join('、')}`, `Could not update: ${failed.join(', ')}`))
   }
 
+  const withUsage = subscriptions.filter(item => item.subscriptionInfo)
+  const withoutUsage = subscriptions.filter(item => !item.subscriptionInfo)
+
+  const subscriptionHead = (item: ProxyProvider) => (
+    <>
+      <div className={styles.rowMain}>
+        <span className={styles.rowName}>{item.name}</span>
+        <span className={styles.rowMeta}>{summary(item)}</span>
+      </div>
+      <div className={styles.actions}>
+        <IconButton size="sm" variant="ghost" label={t('测速', 'Test')} icon={<Zap />} loading={checking === item.name} onClick={() => check(item.name)} />
+        {item.vehicleType === 'HTTP' && <IconButton size="sm" variant="secondary" label={t('更新', 'Update')} icon={<RefreshCw />} loading={updating === key('proxies', item.name)} onClick={() => update('proxies', item.name)} />}
+      </div>
+    </>
+  )
+
   return (
     <main className={styles.page}>
       <header className={styles.header}>
@@ -100,7 +151,7 @@ export function Providers({ status }: { status?: Status }) {
           <h1 className={styles.title}>{t('订阅与规则集', 'Subscriptions and rule sets')}</h1>
           <p className={styles.sub}>{t('完整配置形式的订阅在', 'Subscriptions that replace the whole config are updated on the ')}<a href="#/config">{t('配置页', 'config page')}</a>{t('更新。', '.')}</p>
         </div>
-        {running && updatable.length > 0 && <div className={styles.tools}><Button loading={updatingAll} onClick={() => void updateAll()}>{t('全部更新', 'Update all')}</Button></div>}
+        {running && updatable.length > 0 && <div className={styles.tools}><IconButton label={t('全部更新', 'Update all')} icon={<RefreshCw />} loading={updatingAll} onClick={() => void updateAll()} /></div>}
       </header>
       {error && <Alert tone="danger" title={t('读取或更新失败', 'Could not load or update')}>{error}</Alert>}
       {!running
@@ -110,47 +161,23 @@ export function Providers({ status }: { status?: Status }) {
               <h2 className={styles.cardTitle}>{t('节点订阅', 'Node subscriptions')}</h2>
               {subscriptions.length === 0
                 ? <div className={styles.card}><EmptyState title={t('没有节点订阅', 'No node subscriptions')} description={t('当前配置没有使用 proxy-providers。', 'The current config has no proxy-providers.')} /></div>
-                : <div className={styles.two}>
-                    {subscriptions.map(item => {
-                      const info = item.subscriptionInfo
-                      return (
-                        <div key={item.name} className={styles.card}>
-                          <div className={styles.spread}>
-                            <div className={styles.rowMain}>
-                              <span className={styles.rowName}>{item.name}</span>
-                              <span className={styles.rowMeta}>{summary(item)}</span>
-                            </div>
-                            <div className={styles.actions}>
-                              <Button size="sm" variant="ghost" loading={checking === item.name} onClick={() => check(item.name)}>{t('测速', 'Test')}</Button>
-                              {item.vehicleType === 'HTTP' && <Button size="sm" variant="secondary" loading={updating === key('proxies', item.name)} onClick={() => update('proxies', item.name)}>{t('更新', 'Update')}</Button>}
-                            </div>
+                : <>
+                    {withUsage.length > 0 && (
+                      <div className={`${styles.two} ${styles.equal}`}>
+                        {withUsage.map(item => (
+                          <div key={item.name} className={styles.card}>
+                            <div className={styles.spread}>{subscriptionHead(item)}</div>
+                            <Usage info={item.subscriptionInfo!} />
                           </div>
-                          {!!info?.Total && (
-                            <div className={styles.quota}>
-                              <div className={styles.quotaGauge}>
-                                <Gauge
-                                  label={t('已用流量', 'Traffic used')}
-                                  value={Math.min(100, (info.Upload + info.Download) / info.Total * 100)}
-                                  detail={`${bytes(info.Upload + info.Download)} / ${bytes(info.Total)}`}
-                                  thresholds={[
-                                    { from: 0, tone: 'success', label: t('充足', 'Plenty left') },
-                                    { from: 70, tone: 'warning', label: t('偏高', 'Running low') },
-                                    { from: 90, tone: 'danger', label: t('即将用完', 'Almost used up') },
-                                  ]}
-                                />
-                              </div>
-                              <dl className={styles.details}>
-                                <dt>{t('已下载', 'Downloaded')}</dt><dd>{bytes(info.Download)}</dd>
-                                <dt>{t('已上传', 'Uploaded')}</dt><dd>{bytes(info.Upload)}</dd>
-                                <dt>{t('剩余', 'Remaining')}</dt><dd>{bytes(Math.max(0, info.Total - info.Upload - info.Download))}</dd>
-                              </dl>
-                            </div>
-                          )}
-                          {!!info?.Expire && <p className={styles.hint}>{t(`到期时间：${new Date(info.Expire * 1000).toLocaleDateString()}`, `Expires ${new Date(info.Expire * 1000).toLocaleDateString()}`)}</p>}
-                        </div>
-                      )
-                    })}
-                  </div>}
+                        ))}
+                      </div>
+                    )}
+                    {withoutUsage.length > 0 && (
+                      <div className={`${styles.card} ${styles.list}`}>
+                        {withoutUsage.map(item => <div key={item.name} className={styles.row}>{subscriptionHead(item)}</div>)}
+                      </div>
+                    )}
+                  </>}
             </section>
             <section className={styles.card} aria-label={t('规则集', 'Rule sets')}>
               <h2 className={styles.cardTitle}>{t('规则集', 'Rule sets')}</h2>
@@ -166,7 +193,7 @@ export function Providers({ status }: { status?: Status }) {
                     { key: 'info', label: t('格式', 'Format') },
                     { key: 'count', label: t('条目', 'Entries'), numeric: true, sortable: true },
                     { key: 'updated', label: t('更新时间', 'Updated') },
-                    { key: 'vehicle', label: '', render: (_, row) => row.vehicle === 'HTTP' ? <Button size="sm" variant="ghost" loading={updating === key('rules', row.name)} onClick={() => update('rules', row.name)}>{t('更新', 'Update')}</Button> : null },
+                    { key: 'vehicle', label: '', render: (_, row) => row.vehicle === 'HTTP' ? <IconButton size="sm" variant="ghost" label={t('更新', 'Update')} icon={<RefreshCw />} loading={updating === key('rules', row.name)} onClick={() => update('rules', row.name)} /> : null },
                   ]}
                 />
               </div>

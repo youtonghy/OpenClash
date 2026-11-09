@@ -1,15 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
+import { ArrowDownWideNarrow, ArrowUpNarrowWide, FunnelX, Unplug } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
 import { Badge } from '@/components/arc/badge/badge'
-import { Button } from '@/components/arc/button/button'
-import { ConfirmMorph } from '@/components/arc/confirm-morph/confirm-morph'
 import { Drawer, DrawerContent } from '@/components/arc/drawer/drawer'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
+import { IconMorph } from '@/components/arc/icon-morph/icon-morph'
 import { MorphSelect, type MorphSelectOption } from '@/components/arc/morph-select/morph-select'
 import { Pagination } from '@/components/arc/pagination/pagination'
 import { SearchField } from '@/components/arc/search-field/search-field'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
 import { SortableDataTable, type SortDirection, type SortState } from '@/components/arc/sortable-data-table/sortable-data-table'
+import { IconButton, IconConfirm } from '@/components/IconButton'
 import { apiGet, bytes, isRunning, type Status } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import { mihomoFetch, useMihomoStream, usePolling, type Connection, type Snapshot } from '@/lib/mihomo'
@@ -30,6 +31,7 @@ type Row = Record<FilterKey, string> & {
   upload: number
   download: number
   age: number
+  started: number
   search: string
   raw: Connection
 }
@@ -60,6 +62,7 @@ const filterFields: { key: FilterKey; all: string; format?: (value: string) => s
 /** Each field opens in the direction people usually want it: busiest first, names from A. */
 const sortFields: { key: string; label: string; direction: SortDirection }[] = [
   { key: 'age', label: t('按时长', 'By duration'), direction: 'asc' },
+  { key: 'started', label: t('按连接时间', 'By connection time'), direction: 'desc' },
   { key: 'downSpeed', label: t('按下载速度', 'By download speed'), direction: 'desc' },
   { key: 'upSpeed', label: t('按上传速度', 'By upload speed'), direction: 'desc' },
   { key: 'download', label: t('按下载流量', 'By downloaded'), direction: 'desc' },
@@ -74,6 +77,17 @@ function duration(seconds: number) {
   if (s < 60) return t(`${s}秒`, `${s}s`)
   if (s < 3600) return t(`${Math.floor(s / 60)}分${s % 60}秒`, `${Math.floor(s / 60)}m ${s % 60}s`)
   return t(`${Math.floor(s / 3600)}时${Math.floor(s / 60) % 60}分`, `${Math.floor(s / 3600)}h ${Math.floor(s / 60) % 60}m`)
+}
+
+/** Minutes are precise enough here: the duration column beside it already counts seconds. */
+function ago(ms: number) {
+  const minutes = Math.floor(ms / 60000)
+  if (minutes < 1) return t('刚刚', 'Just now')
+  if (minutes < 60) return t(`${minutes}分钟前`, `${minutes} min ago`)
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return t(`${hours}小时前`, `${hours} h ago`)
+  const days = Math.floor(hours / 24)
+  return t(`${days}天前`, `${days} d ago`)
 }
 
 function toRow(c: Connection, previous: Row | undefined, seconds: number, now: number, devices: DeviceNames): Row {
@@ -103,6 +117,7 @@ function toRow(c: Connection, previous: Row | undefined, seconds: number, now: n
     upload: c.upload,
     download: c.download,
     age: (now - new Date(c.start).getTime()) / 1000,
+    started: new Date(c.start).getTime(),
     search: [host, m.host, m.destinationIP, m.sniffHost, rule, chain, device, m.sourceIP, m.process, m.network].join(' ').toLowerCase(),
     raw: c,
   }
@@ -132,6 +147,7 @@ export function Connections({ status }: { status?: Status }) {
   const [error, setError] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const previous = useRef<{ at: number; rows: Map<string, Row> }>({ at: 0, rows: new Map() })
 
   usePolling(() => {
@@ -142,6 +158,9 @@ export function Connections({ status }: { status?: Status }) {
       })
       .catch(err => setDevicesError((err as Error).message))
   }, 60000, running)
+
+  // on its own clock, so "minutes ago" keeps moving for closed rows and while updates are paused
+  usePolling(() => setNow(Date.now()), 10000, running)
 
   useMihomoStream<Snapshot>(status, '/connections?interval=2000', running && !paused, data => {
     const now = Date.now()
@@ -260,10 +279,11 @@ export function Connections({ status }: { status?: Status }) {
         </div>
         {running && (
           <div className={styles.tools}>
-            <Button variant="secondary" onClick={() => setPaused(value => !value)}>{paused ? t('继续刷新', 'Resume updates') : t('暂停刷新', 'Pause updates')}</Button>
+            <IconButton variant="secondary" label={paused ? t('继续刷新', 'Resume updates') : t('暂停刷新', 'Pause updates')} icon={<IconMorph name="play" state={!paused} size={18} />} onClick={() => setPaused(value => !value)} />
             {view === 'active' && visible.length > 0 && (
-              <ConfirmMorph
+              <IconConfirm
                 label={filtering ? t('断开筛选结果', 'Close filtered') : t('断开全部', 'Close all')}
+                icon={<Unplug />}
                 prompt={t(`断开 ${visible.length} 条连接？`, `Close ${visible.length} connections?`)}
                 confirmLabel={t('断开', 'Close')}
                 cancelLabel={t('取消', 'Cancel')}
@@ -301,7 +321,7 @@ export function Connections({ status }: { status?: Status }) {
                     items={sortFields.map(field => ({ value: field.key, label: field.label }))}
                     onValueChange={key => applySort({ key, direction: sortFields.find(field => field.key === key)?.direction ?? 'asc' })}
                   />
-                  <Button variant="ghost" onClick={() => applySort({ key: sort.key, direction: sort.direction === 'asc' ? 'desc' : 'asc' })}>{sort.direction === 'asc' ? t('升序', 'Ascending') : t('降序', 'Descending')}</Button>
+                  <IconButton variant="ghost" label={sort.direction === 'asc' ? t('升序', 'Ascending') : t('降序', 'Descending')} icon={sort.direction === 'asc' ? <ArrowUpNarrowWide /> : <ArrowDownWideNarrow />} onClick={() => applySort({ key: sort.key, direction: sort.direction === 'asc' ? 'desc' : 'asc' })} />
                 </div>
               </div>
               <div className={styles.filters}>
@@ -317,7 +337,7 @@ export function Connections({ status }: { status?: Status }) {
                     onValueChange={value => setFilter(field.key, value)}
                   />
                 ))}
-                {filterCount > 0 && <Button variant="ghost" onClick={() => { setFilters({}); setPage(1) }}>{t('清除筛选', 'Clear filters')}</Button>}
+                {filterCount > 0 && <IconButton variant="ghost" label={t('清除筛选', 'Clear filters')} icon={<FunnelX />} onClick={() => { setFilters({}); setPage(1) }} />}
               </div>
               <div className={styles.tableScroll}>
                 <SortableDataTable
@@ -346,9 +366,10 @@ export function Connections({ status }: { status?: Status }) {
                     ) },
                     ...(view === 'active' ? [{ key: 'downSpeed', label: t('速度', 'Speed'), numeric: true, width: 122, render: (_: unknown, row: Row) => <Pair down={speed(row.downSpeed)} up={speed(row.upSpeed)} idle={row.downSpeed + row.upSpeed === 0} /> }] : []),
                     { key: 'download', label: t('流量', 'Traffic'), numeric: true, width: 104, render: (_, row) => <Pair down={bytes(row.download)} up={bytes(row.upload)} /> },
+                    { key: 'started', label: t('连接时间', 'Connected'), numeric: true, width: 104, render: value => <span className={styles.nowrap}>{ago(now - (value as number))}</span> },
                     { key: 'age', label: t('时长', 'Duration'), numeric: true, width: 96, render: value => <span className={styles.nowrap}>{duration(value as number)}</span> },
-                    { key: 'id', label: '', sortable: false, width: 88, render: (_, row) => (view === 'active'
-                      ? <Button size="sm" variant="ghost" loading={closing === row.id} onClick={() => closeOne(row.id)}>{t('断开', 'Close')}</Button>
+                    { key: 'id', label: '', sortable: false, width: 60, render: (_, row) => (view === 'active'
+                      ? <IconButton size="sm" variant="ghost" label={t('断开', 'Close')} icon={<Unplug />} loading={closing === row.id} onClick={() => closeOne(row.id)} />
                       : null) },
                   ]}
                 />

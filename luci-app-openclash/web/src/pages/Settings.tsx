@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { RotateCw, Save } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
-import { Button } from '@/components/arc/button/button'
 import { Input } from '@/components/arc/input/input'
 import { Select } from '@/components/arc/select/select'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
 import { Switch } from '@/components/arc/switch/switch'
 import SegmentedControl from '@/components/arc/segmented-control/segmented-control'
 import schema from '@/generated/settings-schema.json'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost, service } from '@/lib/api'
 import { pick, t } from '@/lib/i18n'
 import styles from './layout.module.css'
@@ -98,8 +99,8 @@ export function Settings() {
       <header className={styles.header}>
         <h1 className={styles.title}>{t('设置', 'Settings')}</h1>
         <div className={styles.tools}>
-          <Button variant="secondary" disabled={!dirty} loading={saving === 'save'} onClick={() => save(false)}>{t('保存', 'Save')}</Button>
-          <Button disabled={!dirty} loading={saving === 'apply'} onClick={() => save(true)}>{t('保存并重启', 'Save and restart')}</Button>
+          <IconButton variant="secondary" label={t('保存', 'Save')} icon={<Save />} disabled={!dirty} loading={saving === 'save'} onClick={() => save(false)} />
+          <IconButton label={t('保存并重启', 'Save and restart')} icon={<RotateCw />} disabled={!dirty} loading={saving === 'apply'} onClick={() => save(true)} />
         </div>
       </header>
       {state && <Alert tone={state.tone} title={state.text} />}

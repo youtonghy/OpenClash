@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Pencil, Save, Trash2, Upload } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
-import { Button } from '@/components/arc/button/button'
 import { EmptyState } from '@/components/arc/empty-state/empty-state'
 import { Skeleton } from '@/components/arc/skeleton/skeleton'
+import { IconButton } from '@/components/IconButton'
 import { apiGet, apiPost, apiUpload, bytes, type ConfigFile } from '@/lib/api'
 import { Editor } from '@/lib/Editor'
 import { t } from '@/lib/i18n'
@@ -55,8 +56,8 @@ export function Overwrite() {
         <header className={styles.header}>
           <h1 className={styles.title}>{editing.name}</h1>
           <div className={styles.tools}>
-            <Button variant="secondary" onClick={() => setEditing(null)}>{t('返回', 'Back')}</Button>
-            <Button loading={saving} onClick={save}>{t('保存', 'Save')}</Button>
+            <IconButton variant="secondary" label={t('返回', 'Back')} icon={<ArrowLeft />} onClick={() => setEditing(null)} />
+            <IconButton label={t('保存', 'Save')} icon={<Save />} loading={saving} onClick={save} />
           </div>
         </header>
         {note && <Alert tone={note.tone} title={note.text} />}
@@ -74,7 +75,7 @@ export function Overwrite() {
         </div>
         <div className={styles.tools}>
           <input ref={upload} type="file" hidden onChange={event => { onUpload(event.target.files?.[0]); event.target.value = '' }} />
-          <Button onClick={() => upload.current?.click()}>{t('上传模块', 'Upload module')}</Button>
+          <IconButton label={t('上传模块', 'Upload module')} icon={<Upload />} onClick={() => upload.current?.click()} />
         </div>
       </header>
       {note && <Alert tone={note.tone} title={note.text} />}
@@ -88,8 +89,8 @@ export function Overwrite() {
                   <span className={styles.rowMeta}>{bytes(file.size)} · {new Date(file.mtime * 1000).toLocaleString()}</span>
                 </div>
                 <div className={styles.actions}>
-                  <Button size="sm" variant="secondary" onClick={() => open(file)}>{t('编辑', 'Edit')}</Button>
-                  {file.name !== 'default' && <Button size="sm" variant="ghost" onClick={() => remove(file)}>{t('删除', 'Delete')}</Button>}
+                  <IconButton size="sm" variant="secondary" label={t('编辑', 'Edit')} icon={<Pencil />} onClick={() => open(file)} />
+                  {file.name !== 'default' && <IconButton size="sm" variant="ghost" label={t('删除', 'Delete')} icon={<Trash2 />} onClick={() => remove(file)} />}
                 </div>
               </div>
             ))}

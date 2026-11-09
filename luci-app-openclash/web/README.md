@@ -22,6 +22,9 @@ commit the result whenever `src/` changes.
   through `/oc-api` when nginx provides it and otherwise on the controller port.
 - `device_names` maps LAN addresses to device names (DHCP settings, leases and the neighbour table) for
   the connections page. Addresses without a name are shown shortened in a pill.
+- The subscriptions page reads `subscriptionInfo` from mihomo. It is absent when the provider sent no
+  usage header, and those providers are listed last. A `Total` of 0 means no traffic cap and an `Expire`
+  of 0 means no end date.
 - The statistics page charts live data only. Availability uses the last ten test results mihomo keeps per
   node, and the traffic globe reads each exit place from the node's flag or region name.
 - Choosing a node on the proxy groups page closes that group's connections, so they reconnect through

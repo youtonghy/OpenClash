@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { CircleArrowUp, Download, Upload } from 'lucide-react'
 import { Alert } from '@/components/arc/alert/alert'
-import { Button } from '@/components/arc/button/button'
+import { IconButton } from '@/components/IconButton'
 import { app, apiGet, apiPost, apiUpload } from '@/lib/api'
 import { t } from '@/lib/i18n'
 import styles from './layout.module.css'
@@ -45,7 +46,7 @@ export function Update() {
             <span className={styles.rowName}>{current}</span>
             <span className={styles.rowMeta}>{latest ? t(`最新版本：${latest}`, `Latest: ${latest}`) : t('正在检查最新版本', 'Checking the latest version')}</span>
           </div>
-          <Button loading={busy} onClick={update}>{t('更新内核', 'Update core')}</Button>
+          <IconButton label={t('更新内核', 'Update core')} icon={<CircleArrowUp />} loading={busy} onClick={update} />
         </div>
         <p className={styles.hint}>{t(`插件版本 ${info.opcv ?? app.version}。这是个人精简版，插件本身不再在线更新。`, `Plugin ${info.opcv ?? app.version}. This is a personal build without online plugin updates.`)}</p>
       </section>
@@ -53,8 +54,8 @@ export function Update() {
         <h2 className={styles.cardTitle}>{t('备份', 'Backup')}</h2>
         <div className={styles.actions}>
           <input ref={restore} type="file" accept=".gz,.tgz" hidden onChange={event => { onRestore(event.target.files?.[0]); event.target.value = '' }} />
-          <Button variant="secondary" onClick={() => { location.href = `${app.base}/backup_ex_core` }}>{t('下载备份', 'Download backup')}</Button>
-          <Button variant="secondary" onClick={() => restore.current?.click()}>{t('恢复备份', 'Restore backup')}</Button>
+          <IconButton variant="secondary" label={t('下载备份', 'Download backup')} icon={<Download />} onClick={() => { location.href = `${app.base}/backup_ex_core` }} />
+          <IconButton variant="secondary" label={t('恢复备份', 'Restore backup')} icon={<Upload />} onClick={() => restore.current?.click()} />
         </div>
         <p className={styles.hint}>{t('备份不包含内核文件。', 'The backup does not include the core binary.')}</p>
       </section>
