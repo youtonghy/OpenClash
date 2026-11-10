@@ -20,12 +20,17 @@ find "$WORK/data" -type f -exec chmod 644 {} +
 chmod 755 "$WORK/data/etc/init.d/openclash"
 chmod -R 755 "$WORK/data/usr/share/openclash"
 
+# perl -pi behaves the same on GNU and BSD, unlike sed -i
 find "$WORK/data/usr/lib/lua/luci" "$WORK/data/www" -type f \( -name '*.lua' -o -name '*.htm' \) \
-	-exec sed -i '' "s|@OPENCLASH_VERSION@|$VERSION|g" {} + 2>/dev/null || true
+	-exec perl -pi -e "s|\@OPENCLASH_VERSION\@|$VERSION|g" {} +
+if grep -rq '@OPENCLASH_VERSION@' "$WORK/data/usr/lib/lua/luci"; then
+	echo "version token left in the payload" >&2
+	exit 1
+fi
 
 # The checked-in po2lmo is a Linux binary, build one for the host
 PO2LMO="$WORK/po2lmo"
-cc -o "$PO2LMO" "$ROOT/tools/po2lmo/src/po2lmo.c" "$ROOT/tools/po2lmo/src/template_lmo.c"
+${CC:-cc} -o "$PO2LMO" "$ROOT/tools/po2lmo/src/po2lmo.c" "$ROOT/tools/po2lmo/src/template_lmo.c"
 for po in "$ROOT"/po/zh-cn/*.po; do
 	"$PO2LMO" "$po" "$WORK/data/usr/lib/lua/luci/i18n/$(basename "${po%.po}").lmo"
 done
