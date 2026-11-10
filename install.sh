@@ -1,7 +1,7 @@
 #!/bin/sh
 # One-click installer for RouterClash (luci-app-openclash) on OpenWrt.
 #
-#   wget -qO- https://github.com/youtonghy/OpenClash/releases/latest/download/install.sh | sh
+#   wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/install.sh | sh
 #
 # Options (as arguments with `sh -s -- <options>`, or as environment variables):
 #   -v, --version <tag>   install this release instead of the latest   (OPENCLASH_VERSION)
@@ -9,7 +9,7 @@
 #                         https://ghfast.top/                          (GH_PROXY)
 #   --skip-deps           do not install dependencies                  (SKIP_DEPS=1)
 
-REPO="${OPENCLASH_REPO:-youtonghy/OpenClash}"
+REPO="${OPENCLASH_REPO:-youtonghy/RouterClash}"
 VERSION="${OPENCLASH_VERSION:-latest}"
 PROXY="${GH_PROXY:-}"
 SKIP_DEPS="${SKIP_DEPS:-0}"

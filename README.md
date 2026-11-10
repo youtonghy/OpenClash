@@ -50,7 +50,7 @@ OpenClash 是一个面向 OpenWrt 的 LuCI 插件，用于管理 [Mihomo](https:
 在路由器上以 root 运行（自动识别 opkg / apk 与 iptables / nftables，安装依赖并校验安装包）：
 
 ```shell
-wget -qO- https://github.com/youtonghy/OpenClash/releases/latest/download/install.sh | sh
+wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/install.sh | sh
 ```
 
 可选参数（通过 `sh -s --` 传入，或使用括号中的环境变量）：
@@ -62,12 +62,12 @@ wget -qO- https://github.com/youtonghy/OpenClash/releases/latest/download/instal
 | `--skip-deps` | 跳过依赖安装（`SKIP_DEPS=1`） |
 
 ```shell
-wget -qO- https://github.com/youtonghy/OpenClash/releases/latest/download/install.sh | sh -s -- -p https://ghfast.top/
+wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/install.sh | sh -s -- -p https://ghfast.top/
 ```
 
 ### 网页安装
 
-1. 从 [Release 页面](https://github.com/youtonghy/OpenClash/releases) 下载安装包（opkg 系统用 `*.ipk`，apk 系统用 `*.apk`）；
+1. 从 [Release 页面](https://github.com/youtonghy/RouterClash/releases) 下载安装包（opkg 系统用 `*.ipk`，apk 系统用 `*.apk`）；
 2. 登录 OpenWrt 的 LuCI 后台，前往 **系统 → 软件包** 上传并安装；
 3. 刷新或者重新登录页面，在 **服务 → RouterClash** 中导入订阅或上传配置文件并启动。
 
@@ -79,14 +79,14 @@ wget -qO- https://github.com/youtonghy/OpenClash/releases/latest/download/instal
 
 ## 下载
 
-最新版本请前往 [Releases](https://github.com/youtonghy/OpenClash/releases/latest) 页面，按需选择对应的安装包：
+最新版本请前往 [Releases](https://github.com/youtonghy/RouterClash/releases/latest) 页面，按需选择对应的安装包：
 
 | 安装包 | 说明 |
 |--------|------|
 | `luci-app-openclash_*.ipk` | opkg 安装包 |
 | `luci-app-openclash-*.apk` | apk 安装包 |
 
-> 历史版本请前往 [全部 Releases](https://github.com/youtonghy/OpenClash/releases) 查看。
+> 历史版本请前往 [全部 Releases](https://github.com/youtonghy/RouterClash/releases) 查看。
 
 ### 发布流程
 
