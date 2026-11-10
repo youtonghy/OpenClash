@@ -1,0 +1,104 @@
+name: Check
+
+on:
+  push:
+    branches:
+      - '**'
+    tags-ignore:
+      - '**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: luci-app-openclash/web
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: luci-app-openclash/web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npx oxlint src/pages src/lib src/App.tsx
+
+      - name: Type check and build
+        run: npm run build
+
+      # The router serves the committed bundle, so it has to match src/
+      - name: Committed bundle is up to date
+        working-directory: luci-app-openclash
+        run: |
+          git add -N root/www/luci-static/resources/openclash/app
+          if ! git diff --quiet -- root/www/luci-static/resources/openclash/app; then
+            git status --short -- root/www/luci-static/resources/openclash/app
+            echo "::error::The built web app differs from the committed one. Run 'npm run build' in luci-app-openclash/web and commit the result."
+            exit 1
+          fi
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install tools
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install lua5.1 ruby
+
+      - name: Lua syntax
+        run: |
+          find luci-app-openclash/luasrc luci-app-openclash/root -name '*.lua' -print0 \
+            | xargs -0 -n1 luac5.1 -p
+
+      - name: Shell syntax
+        run: |
+          set -e
+          for f in luci-app-openclash/root/etc/init.d/openclash \
+                   luci-app-openclash/root/usr/share/openclash/*.sh \
+                   luci-app-openclash/tools/build-ipk.sh \
+                   install.sh; do
+            bash -n "$f"
+          done
+          sh -n install.sh
+
+      - name: Ruby syntax
+        run: |
+          find luci-app-openclash/root -name '*.rb' -print0 | xargs -0 -n1 ruby -c >/dev/null
+
+      - name: Translations compile
+        run: |
+          make -C luci-app-openclash/tools/po2lmo
+          for po in luci-app-openclash/po/zh-cn/*.po; do
+            luci-app-openclash/tools/po2lmo/src/po2lmo "$po" "/tmp/$(basename "${po%.po}").lmo"
+          done
+
+      - name: Build ipk
+        run: |
+          mkdir -p dist
+          bash luci-app-openclash/tools/build-ipk.sh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-openclash-ipk-${{ github.sha }}
+          path: dist/*.ipk
+          retention-days: 7

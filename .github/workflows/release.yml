@@ -1,0 +1,140 @@
+name: Release
+
+# Push a tag named v<PKG_VERSION> (for example v0.49.002) to publish a release.
+# Running it by hand builds the packages as artifacts without publishing anything.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # OpenWrt SDK used for the apk package. The package is PKGARCH:=all, so x86/64 is enough.
+  SDK_BASE: https://downloads.openwrt.org/snapshots/targets/x86/64
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Read PKG_VERSION
+        id: version
+        run: |
+          VERSION="$(sed -n 's/^PKG_VERSION:=//p' luci-app-openclash/Makefile)"
+          [ -n "$VERSION" ] || { echo "::error::PKG_VERSION not found"; exit 1; }
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match PKG_VERSION ${VERSION}"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+  ipk:
+    name: Build ipk
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          bash luci-app-openclash/tools/build-ipk.sh dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ipk
+          path: dist/*.ipk
+
+  apk:
+    name: Build apk
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install build-essential libncurses-dev gawk zstd python3 python3-setuptools rsync file unzip
+
+      - name: Download SDK
+        run: |
+          curl -fsSL --retry 3 "$SDK_BASE/sha256sums" -o sha256sums
+          SDK_NAME="$(grep -oE 'openwrt-sdk-[^ ]+\.tar\.zst' sha256sums | head -n1)"
+          [ -n "$SDK_NAME" ] || { echo "::error::No SDK listed in $SDK_BASE/sha256sums"; exit 1; }
+          curl -fSL --retry 3 "$SDK_BASE/$SDK_NAME" -o "$SDK_NAME"
+          grep " \*\?$SDK_NAME\$" sha256sums | sha256sum -c -
+          mkdir sdk
+          tar --zstd -xf "$SDK_NAME" -C sdk --strip-components=1
+
+      - name: Install po2lmo
+        run: |
+          make -C luci-app-openclash/tools/po2lmo
+          sudo make -C luci-app-openclash/tools/po2lmo install
+
+      - name: Build
+        run: |
+          cp -R luci-app-openclash sdk/package/luci-app-openclash
+          rm -rf sdk/package/luci-app-openclash/web sdk/package/luci-app-openclash/tools
+          cd sdk
+          make defconfig
+          make package/luci-app-openclash/compile V=s -j1
+          mkdir -p ../dist
+          find bin -name 'luci-app-openclash-*.apk' -exec cp {} ../dist/ \;
+          ls ../dist/*.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: dist/*.apk
+
+  release:
+    name: Publish
+    needs: [version, ipk, apk]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          cp install.sh dist/
+          (cd dist && sha256sum luci-app-openclash* install.sh > sha256sums.txt && cat sha256sums.txt)
+          cat > notes.md <<EOF
+          One-click install on OpenWrt:
+
+          \`\`\`sh
+          wget -qO- https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/install.sh | sh
+          \`\`\`
+
+          - \`luci-app-openclash_*.ipk\`: OpenWrt with opkg (24.10 and older)
+          - \`luci-app-openclash-*.apk\`: OpenWrt with apk (25.12 and newer)
+          EOF
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --title "v${VERSION}" \
+              --notes-file notes.md \
+              --generate-notes \
+              --latest
+          fi
