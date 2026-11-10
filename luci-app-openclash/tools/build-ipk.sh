@@ -69,9 +69,15 @@ Description:  RouterClash, a LuCI app for the mihomo core
 S
 
 export COPYFILE_DISABLE=1
-(cd "$WORK/data" && tar --no-xattrs --uid 0 --gid 0 --numeric-owner -czf ../data.tar.gz .)
-(cd "$WORK/control" && tar --no-xattrs --uid 0 --gid 0 --numeric-owner -czf ../control.tar.gz .)
+# GNU tar and bsdtar spell root ownership differently
+if tar --version 2>/dev/null | grep -q 'GNU tar'; then
+	OWNER=(--owner=0 --group=0 --numeric-owner)
+else
+	OWNER=(--uid 0 --gid 0 --numeric-owner)
+fi
+(cd "$WORK/data" && tar --no-xattrs "${OWNER[@]}" -czf ../data.tar.gz .)
+(cd "$WORK/control" && tar --no-xattrs "${OWNER[@]}" -czf ../control.tar.gz .)
 echo 2.0 >"$WORK/debian-binary"
 PKG="$OUT/luci-app-openclash_${VERSION}_all.ipk"
-(cd "$WORK" && tar --no-xattrs --uid 0 --gid 0 --numeric-owner -czf "$PKG" ./debian-binary ./data.tar.gz ./control.tar.gz)
+(cd "$WORK" && tar --no-xattrs "${OWNER[@]}" -czf "$PKG" ./debian-binary ./data.tar.gz ./control.tar.gz)
 echo "$PKG"
