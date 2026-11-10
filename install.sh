@@ -51,6 +51,14 @@ fi
 
 info "package manager: $PM, firewall: $FW"
 
+pkg_update() {
+	if [ "$PM" = "apk" ]; then
+		apk update
+	else
+		opkg update
+	fi
+}
+
 pkg_add() {
 	if [ "$PM" = "apk" ]; then
 		apk add "$@"
@@ -59,17 +67,39 @@ pkg_add() {
 	fi
 }
 
-if [ "$SKIP_DEPS" != "1" ]; then
-	info "updating package lists"
+# opkg install upgrades packages that are already there (luci-base, ca-bundle...),
+# so only pass the missing ones
+missing() {
 	if [ "$PM" = "apk" ]; then
-		apk update || die "apk update failed, check the network and the package feeds"
+		for p in "$@"; do apk info -e "$p" >/dev/null 2>&1 || echo "$p"; done
 	else
-		opkg update || die "opkg update failed, check the network and the package feeds"
+		installed="$(opkg list-installed | awk '{print $1}')"
+		for p in "$@"; do echo "$installed" | grep -qx "$p" || echo "$p"; done
 	fi
-	info "installing dependencies: $DEPS"
+}
+
+if [ "$SKIP_DEPS" != "1" ]; then
 	# shellcheck disable=SC2086
-	pkg_add $DEPS || die "installing dependencies failed"
-	for p in $RECOMMENDS; do
+	NEED="$(missing $DEPS | tr '\n' ' ')"
+	# shellcheck disable=SC2086
+	NEED_REC="$(missing $RECOMMENDS | tr '\n' ' ')"
+	if [ -n "${NEED}${NEED_REC}" ]; then
+		info "updating package lists"
+		if ! pkg_update; then
+			msg="updating package lists failed, check the network and the package feeds (if RouterClash is running with a broken proxy, stop it first)"
+			[ -n "$NEED" ] && die "$msg"
+			warn "$msg"
+			NEED_REC=""
+		fi
+	fi
+	if [ -n "$NEED" ]; then
+		info "installing dependencies: $NEED"
+		# shellcheck disable=SC2086
+		pkg_add $NEED || die "installing dependencies failed"
+	else
+		info "dependencies already installed"
+	fi
+	for p in $NEED_REC; do
 		pkg_add "$p" >/dev/null 2>&1 || warn "could not install $p, some features may not work"
 	done
 fi
