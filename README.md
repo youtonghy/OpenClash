@@ -134,7 +134,9 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 
 ### 前端
 
-LuCI 页面由 `luci-app-openclash/web` 中的 React 应用构建，构建产物提交在仓库里，路由器上不需要 Node。详见 [web/README.md](luci-app-openclash/web/README.md)。
+LuCI 页面由 `luci-app-openclash/web` 中的 React 应用构建，构建产物提交在仓库里，路由器上不需要 Node，打包也不需要前端源码环境。详见 [web/README.md](luci-app-openclash/web/README.md)。
+
+界面使用的 [Arc](https://collectui.pro) 组件（含付费的 Arc Pro）受许可限制，以私有子模块 `src/components/arc` 存放，没有访问权限时无法重新构建前端，但不影响打包与安装。
 
 ```bash
 cd luci-app-openclash/web
@@ -155,7 +157,7 @@ bash luci-app-openclash/tools/build-ipk.sh dist   # 生成 dist/luci-app-opencla
 
 ### CI 与发布
 
-- **Check**：每次推送与 PR 运行前端 lint、类型检查与构建（并确认已提交的构建产物是最新的）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
+- **Check**：每次推送与 PR 运行前端 lint、类型检查与构建（并确认已提交的构建产物是最新的；通过 `ARC_DEPLOY_KEY` 读取私有 Arc 子模块，来自 fork 的 PR 会跳过这一步）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
 - **Release**：推送 `v<PKG_VERSION>` 标签（例如 `git tag v0.49.003 && git push origin v0.49.003`）后，校验标签与 `luci-app-openclash/Makefile` 中的版本一致，构建 ipk 与 apk，并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
 
 也可以在 Actions 页面手动运行 `Release`（或 `gh workflow run release.yml -f version=0.49.003 -f publish=true`）：

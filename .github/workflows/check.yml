@@ -23,26 +23,54 @@ jobs:
     defaults:
       run:
         working-directory: luci-app-openclash/web
+    env:
+      # Arc components live in the private submodule; forks and fork PRs have no key to read it
+      HAS_ARC_KEY: ${{ secrets.ARC_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v6
 
+      - name: Arc components unavailable
+        if: env.HAS_ARC_KEY != 'true'
+        run: echo "::notice::ARC_DEPLOY_KEY is not available, skipping the web build (the committed bundle is used as is)."
+
+      - name: Resolve Arc submodule commit
+        id: arc
+        if: env.HAS_ARC_KEY == 'true'
+        working-directory: .
+        run: echo "sha=$(git rev-parse HEAD:luci-app-openclash/web/src/components/arc)" >> "$GITHUB_OUTPUT"
+
+      - name: Check out Arc components
+        if: env.HAS_ARC_KEY == 'true'
+        uses: actions/checkout@v6
+        with:
+          repository: youtonghy/RouterClash-arc
+          ref: ${{ steps.arc.outputs.sha }}
+          ssh-key: ${{ secrets.ARC_DEPLOY_KEY }}
+          path: luci-app-openclash/web/src/components/arc
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
+        if: env.HAS_ARC_KEY == 'true'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: luci-app-openclash/web/package-lock.json
 
       - name: Install dependencies
+        if: env.HAS_ARC_KEY == 'true'
         run: npm ci
 
       - name: Lint
+        if: env.HAS_ARC_KEY == 'true'
         run: npx oxlint src/pages src/lib src/App.tsx
 
       - name: Type check and build
+        if: env.HAS_ARC_KEY == 'true'
         run: npm run build
 
       # The router serves the committed bundle, so it has to match src/
       - name: Committed bundle is up to date
+        if: env.HAS_ARC_KEY == 'true'
         working-directory: luci-app-openclash
         run: |
           git add -N root/www/luci-static/resources/openclash/app

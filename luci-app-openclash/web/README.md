@@ -52,13 +52,27 @@ adding an option.
 
 ## Arc components
 
-`src/components/arc` holds Arc and Arc Pro source installed with the shadcn CLI. Installing more needs
-`ARC_PRO_TOKEN` in `.env.local`, which is ignored by git:
+`src/components/arc` holds Arc and Arc Pro source installed with the shadcn CLI, including local changes.
+Arc Pro is licensed, so it lives in the private repository
+[youtonghy/RouterClash-arc](https://github.com/youtonghy/RouterClash-arc), mounted here as a git submodule.
+The public repository only records which commit to use. Packaging does not need it, because the built
+bundle is committed.
 
 ```sh
-npx shadcn@latest add @uiarc/<name>
-npx shadcn@latest add @uiarc-pro/<name>
+git submodule update --init   # needs read access to RouterClash-arc
 ```
+
+Changing or adding components:
+
+```sh
+npx shadcn@latest add @uiarc/<name>       # needs ARC_PRO_TOKEN in .env.local, which git ignores
+npx shadcn@latest add @uiarc-pro/<name>
+cd src/components/arc && git add -A && git commit -m "..." && git push   # commit in the private repo first
+cd - && git add src/components/arc                                        # then record the new commit here
+```
+
+The Check workflow reads the private repository with the `ARC_DEPLOY_KEY` secret, a read-only deploy key.
+Without it (forks, pull requests from forks) the web build is skipped.
 
 ## Packaging
 

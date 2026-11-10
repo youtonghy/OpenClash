@@ -1,0 +1,3 @@
+[submodule "luci-app-openclash/web/src/components/arc"]
+	path = luci-app-openclash/web/src/components/arc
+	url = git@github.com:youtonghy/RouterClash-arc.git
