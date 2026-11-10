@@ -1,47 +1,80 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/vernesong/OpenClash/dev/img/logo.png" alt="OpenClash" width="160" />
+<img src="img/logo.png" alt="RouterClash" width="140" />
 
-# OpenClash
+# RouterClash
 
-一个可运行在 OpenWrt 上的 [Mihomo (Clash Meta)](https://github.com/MetaCubeX/mihomo) 客户端
+运行在 OpenWrt 上的 [Mihomo (Clash Meta)](https://github.com/MetaCubeX/mihomo) 客户端，带一套重新设计的 LuCI 管理界面
 
-[![License](https://img.shields.io/github/license/vernesong/OpenClash?style=flat-square&color=brightgreen)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/vernesong/OpenClash?style=flat-square)](https://github.com/vernesong/OpenClash/releases)
-[![Downloads](https://img.shields.io/github/downloads/vernesong/OpenClash/total?style=flat-square)](https://github.com/vernesong/OpenClash/releases)
-[![OpenWrt](https://img.shields.io/badge/OpenWrt-18.06%2B-00B5E2?style=flat-square&logo=openwrt&logoColor=white)](https://openwrt.org/)
-[![Telegram](https://img.shields.io/badge/Telegram-OpenClash%20Group-2CA5E0?style=flat-square&logo=telegram&logoColor=white)](https://t.me/openclash_group)
+[![Release](https://img.shields.io/github/v/release/youtonghy/RouterClash?style=flat-square)](https://github.com/youtonghy/RouterClash/releases)
+[![Check](https://img.shields.io/github/actions/workflow/status/youtonghy/RouterClash/check.yml?branch=master&style=flat-square&label=check)](https://github.com/youtonghy/RouterClash/actions/workflows/check.yml)
+[![License](https://img.shields.io/github/license/youtonghy/RouterClash?style=flat-square&color=brightgreen)](LICENSE)
+[![OpenWrt](https://img.shields.io/badge/OpenWrt-21.02%2B-00B5E2?style=flat-square&logo=openwrt&logoColor=white)](https://openwrt.org/)
+
+基于 [vernesong/OpenClash](https://github.com/vernesong/OpenClash) 二次开发
 
 </div>
 
-## 简介
-
-OpenClash 是一个面向 OpenWrt 的 LuCI 插件，用于管理 [Mihomo](https://github.com/MetaCubeX/mihomo)（原 Clash Meta）内核，兼容 Shadowsocks、ShadowsocksR、VMess、VLESS、Trojan、Snell、TUIC、Hysteria 等主流协议，通过灵活的规则配置实现按需分流与透明代理。
-
-## 功能特性
-
-| 模块 | 说明 |
-|------|------|
-| 内核 | 内置 Mihomo（Meta）与 Smart 智能内核，支持在线更新与切换 |
-| 运行模式 | redir-host / fake-ip 与混合模式、TUN 模式，兼容 iptables 与 nftables |
-| 订阅管理 | 多订阅并存，支持 Subconverter 在线转换、自定义 User-Agent 与请求头 |
-| 配置管理 | 多配置文件一键切换、在线编辑、备份/恢复、Age 加密 |
-| 访问控制 | 黑白名单、自定义防火墙规则 |
-| 流媒体 | Netflix / Disney+ / HBO 等自动选线 |
-| 覆写设置 | 模块化覆写 YAML，方便配置文件定制 |
+![概览](img/screenshots/overview.webp)
 
 ## 目录
 
 - [简介](#简介)
-- [功能特性](#功能特性)
+- [截图](#截图)
+- [功能](#功能)
 - [快速开始](#快速开始)
-- [使用手册](#使用手册)
 - [下载](#下载)
 - [依赖](#依赖)
-- [源码编译](#源码编译)
-- [致谢](#致谢)
-- [请作者喝杯咖啡](#请作者喝杯咖啡)
+- [开发与构建](#开发与构建)
+- [鸣谢](#鸣谢)
 - [许可证](#许可证)
+
+## 简介
+
+RouterClash 是 [OpenClash](https://github.com/vernesong/OpenClash) 的一个分支。它沿用 OpenClash 成熟的透明代理、防火墙与配置处理逻辑，把 LuCI 页面换成了一个 React 单页应用，并围绕日常使用做了取舍：
+
+- **新的管理界面**：概览、策略组、连接、统计、订阅等页面直接读取 Mihomo 控制器的实时数据，支持中英文，深浅色跟随系统。
+- **断网保护（Kill Switch）**：内核未运行时阻止局域网设备绕过代理直连，默认开启，可一键临时放行。
+- **更轻的功能面**：移除了流媒体解锁检测、Smart 内核、GEO 数据库定时更新、dnsmasq 转发与大陆白名单绕过等分支，只保留 Mihomo（Meta）内核。
+- **默认面板**：内置 zashboard（默认）与 metacubexd。
+
+包名与配置路径保持为 `luci-app-openclash` / `/etc/openclash`，可以直接覆盖安装在 OpenClash 之上并保留原有配置。
+
+## 截图
+
+<table>
+  <tr>
+    <td width="50%"><img src="img/screenshots/proxies.webp" alt="策略组" /><p align="center">策略组：行内切换节点、测速</p></td>
+    <td width="50%"><img src="img/screenshots/connections.webp" alt="连接" /><p align="center">连接：按来源、规则、策略组、节点筛选</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="img/screenshots/stats.webp" alt="统计" /><p align="center">统计：设备 → 规则 → 策略组流量去向</p></td>
+    <td width="50%"><img src="img/screenshots/globe.webp" alt="流量地球" /><p align="center">流量地球：按出口地区汇总代理流量</p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="img/screenshots/providers.webp" alt="订阅" /><p align="center">订阅：流量用量、到期时间与规则集</p></td>
+    <td width="50%"><img src="img/screenshots/settings.webp" alt="设置" /><p align="center">设置：运行模式、DNS、IPv6、局域网控制等</p></td>
+  </tr>
+</table>
+
+> 截图使用演示配置与模拟流量，节点与订阅均为虚构。
+
+## 功能
+
+| 页面 | 说明 |
+|------|------|
+| 概览 | 实时上下行速率曲线、活动连接、内核内存与 CPU、累计流量，切换规则 / 全局 / 直连 |
+| 策略组 | 查看全部策略组与节点延迟，行内选择节点（会断开该组现有连接以立即生效），按策略组测速 |
+| 连接 | 活动与已关闭连接，显示局域网设备名称，按来源、规则、策略组、节点、协议筛选与排序，单条或全部断开 |
+| 统计 | 设备 → 规则 → 策略组流量桑基图、节点可用率、流量分布、出口地区地球与订阅用量 |
+| 配置 | 多配置文件切换、在线编辑、上传，添加订阅（可选在线订阅转换） |
+| 订阅 | 节点订阅的已用流量、剩余与到期时间，规则集条目与更新 |
+| 覆写 | 模块化覆写，启动时按顺序叠加到配置上 |
+| 自定义 | 前置规则、IPv4 / IPv6 绕过列表、防火墙脚本、流量探测 |
+| 设置 | 运行模式（Fake-IP / Redir-Host，TUN / 混合）、DNS、IPv6、局域网访问控制、面板、定时重启、内存等 |
+| 更新 / 日志 | 更新 Mihomo 内核（只重启内核进程）、备份与恢复，查看插件与内核日志 |
+
+同时兼容 iptables（fw3）与 nftables（fw4）。
 
 ## 快速开始
 
@@ -71,141 +104,96 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 2. 登录 OpenWrt 的 LuCI 后台，前往 **系统 → 软件包** 上传并安装；
 3. 刷新或者重新登录页面，在 **服务 → RouterClash** 中导入订阅或上传配置文件并启动。
 
-> 首次使用需要下载内核，请提前确认网络环境
+> 首次使用需要在 **更新** 页面下载 Mihomo 内核，请提前确认网络环境。
 
-## 使用手册
-
-- [Wiki](https://github.com/vernesong/OpenClash/blob/dev/.github/skills/openclash-user-guide/SKILL.md)
+使用说明可参考 [OpenClash 使用手册](.github/skills/openclash-user-guide/SKILL.md)（来自上游，部分功能在本分支中已移除）。
 
 ## 下载
 
 最新版本请前往 [Releases](https://github.com/youtonghy/RouterClash/releases/latest) 页面，按需选择对应的安装包：
 
-| 安装包 | 说明 |
+| 安装包 | 适用系统 |
 |--------|------|
-| `luci-app-openclash_*.ipk` | opkg 安装包 |
-| `luci-app-openclash-*.apk` | apk 安装包 |
+| `luci-app-openclash_*.ipk` | 使用 opkg 的 OpenWrt（24.10 及更早） |
+| `luci-app-openclash-*.apk` | 使用 apk 的 OpenWrt（25.12 及更新） |
 
-> 历史版本请前往 [全部 Releases](https://github.com/youtonghy/RouterClash/releases) 查看。
+每个 Release 同时附带 `install.sh` 与 `sha256sums.txt`。
 
-### 发布流程
+## 依赖
 
-1. 修改 `luci-app-openclash/Makefile` 中的 `PKG_VERSION`，提交并推送；
-2. 推送同名标签，例如 `git tag v0.49.003 && git push origin v0.49.003`；
-3. `Release` 工作流会校验标签与版本一致，构建 ipk（`tools/build-ipk.sh`）与 apk（OpenWrt SDK），并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
+一键安装脚本会自动处理以下依赖。
+
+| 类别 | 依赖 |
+|------|------|
+| 必需 | bash、curl、ca-bundle、ip-full、ruby、ruby-yaml、kmod-tun、unzip、luci-base、luci-compat |
+| 推荐 | kmod-inet-diag |
+| 防火墙（nftables / fw4） | kmod-nft-tproxy |
+| 防火墙（iptables / fw3） | iptables、kmod-ipt-nat、iptables-mod-tproxy、iptables-mod-extra、ipset |
+
+## 开发与构建
+
+### 前端
+
+LuCI 页面由 `luci-app-openclash/web` 中的 React 应用构建，构建产物提交在仓库里，路由器上不需要 Node。详见 [web/README.md](luci-app-openclash/web/README.md)。
+
+```bash
+cd luci-app-openclash/web
+npm install
+npm run dev     # 开发服务器，API 代理到 OC_RIG（默认 http://127.0.0.1:18080）
+npm run build   # 输出到 ../root/www/luci-static/resources/openclash/app，修改 src/ 后需提交构建结果
+```
+
+### 打包
+
+插件与架构无关（`PKGARCH:=all`），ipk 可以不借助 SDK 直接打包：
+
+```bash
+bash luci-app-openclash/tools/build-ipk.sh dist   # 生成 dist/luci-app-openclash_<版本>_all.ipk
+```
+
+也可以把 `luci-app-openclash` 目录放进 OpenWrt SDK 或源码树的 `package/` 下，用 `make package/luci-app-openclash/compile` 编译（需要先在 `tools/po2lmo` 中 `make && sudo make install`）。apk 包即用 OpenWrt snapshot SDK 以这种方式构建。
+
+### CI 与发布
+
+- **Check**：每次推送与 PR 运行前端 lint、类型检查与构建（并确认已提交的构建产物是最新的）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
+- **Release**：推送 `v<PKG_VERSION>` 标签（例如 `git tag v0.49.003 && git push origin v0.49.003`）后，校验标签与 `luci-app-openclash/Makefile` 中的版本一致，构建 ipk 与 apk，并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
 
 也可以在 Actions 页面手动运行 `Release`（或 `gh workflow run release.yml -f version=0.49.003 -f publish=true`）：
 
 - `version`：要构建的版本号（如 `0.49.003`），留空则使用 Makefile 中的 `PKG_VERSION`；只覆盖本次构建，不会提交到仓库；
 - `publish`：勾选后在所选分支的当前提交上创建 `v<version>` 标签并发布 Release，该版本已发布时会直接失败；不勾选只构建产物。
 
-每次推送与 PR 都会运行 `Check` 工作流：前端 lint、类型检查与构建（并确认已提交的构建产物是最新的）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
+## 鸣谢
 
-## 依赖
+### 上游项目
 
-| 类别 | 依赖 |
-|------|------|
-| 基础 | luci、luci-base、luci-compat（Luci ≥ 19.07） |
-| 运行时 | bash、curl、ca-bundle、ruby、ruby-yaml |
-| 网络 | dnsmasq-full、ipset、ip-full、unzip |
-| 防火墙（iptables） | iptables、kmod-ipt-nat、iptables-mod-tproxy、iptables-mod-extra |
-| 防火墙（nftables） | kmod-nft-tproxy（Firewall4） |
-| 可选 | kmod-tun（TUN 模式）、ip6tables-mod-nat（IPv6）、kmod-inet-diag（PROCESS-NAME） |
+RouterClash 建立在 [vernesong](https://github.com/vernesong) 维护的 [OpenClash](https://github.com/vernesong/OpenClash) 之上。透明代理、防火墙规则、配置处理、内核管理等核心逻辑都来自 OpenClash 多年的积累，感谢 vernesong 与所有 OpenClash 贡献者。如果 RouterClash 对你有帮助，也欢迎支持上游作者：
 
-## 源码编译
+<p align="left">
+  <a href="https://ko-fi.com/H2H41G5LS" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" border="0" alt="Buy vernesong a Coffee at ko-fi.com" /></a>
+</p>
 
-从 OpenWrt 的 [SDK](https://archive.openwrt.org/chaos_calmer/15.05.1/ar71xx/generic/OpenWrt-SDK-15.05.1-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2) 编译：
+需要完整功能（流媒体解锁检测、Smart 内核等）或更稳定的长期维护，请使用 [OpenClash](https://github.com/vernesong/OpenClash)。
 
-```bash
-# 解压下载好的 SDK
-curl -SLk --connect-timeout 30 --retry 2 "https://archive.openwrt.org/chaos_calmer/15.05.1/ar71xx/generic/OpenWrt-SDK-15.05.1-ar71xx-generic_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2" -o "/tmp/SDK.tar.bz2"
-cd /tmp
-tar xjf SDK.tar.bz2
-cd OpenWrt-SDK-15.05.1-*
-
-# Clone 项目
-mkdir package/luci-app-openclash
-cd package/luci-app-openclash
-git init
-git remote add -f origin https://github.com/vernesong/OpenClash.git
-git config core.sparsecheckout true
-echo "luci-app-openclash" >> .git/info/sparse-checkout
-git pull --depth 1 origin master
-git branch --set-upstream-to=origin/master master
-
-# 编译 po2lmo (如果有 po2lmo 可跳过)
-pushd luci-app-openclash/tools/po2lmo
-make && sudo make install
-popd
-
-# 编译最新 CodeMirror 6 (插件内置，可跳过)
-pushd luci-app-openclash/tools/codemirror
-npm install
-npx esbuild entry.js --bundle --format=iife --global-name=CM6 --minify --target=es2019 --outfile=../../root/www/luci-static/resources/openclash/js/cm6.min.js --legal-comments=none --loader:.css=text
-npx esbuild entry-md-render.js --bundle --format=iife --global-name=OCMarkdown --minify --target=es2019 --outfile=../../root/www/luci-static/resources/openclash/js/md-render.min.js --legal-comments=none --loader:.css=text
-npx esbuild entry-lint-worker.js --bundle --format=iife --minify --target=es2019 --outfile=../../root/www/luci-static/resources/openclash/js/lint-worker.min.js --legal-comments=none
-rm -rf node_modules
-popd
-
-# 开始编译
-
-# 先回退到 SDK 主目录
-cd ../..
-make package/luci-app-openclash/luci-app-openclash/compile V=99
-
-# IPK 文件位置
-./bin/ar71xx/packages/base/luci-app-openclash_*-beta_all.ipk
-```
-
-```bash
-# 同步源码
-cd package/luci-app-openclash/luci-app-openclash
-git pull
-
-# 您也可以直接拷贝 `luci-app-openclash` 文件夹至其他 `OpenWrt` 项目的 `Package` 目录下随固件编译
-
-make menuconfig
-# 选择要编译的包 LuCI -> Applications -> luci-app-openclash
-
-```
-
-## 致谢
-
-OpenClash 的构建离不开以下开源项目与数据服务：
+### 开源项目与数据
 
 | 类别 | 项目 | 作者 / 组织 | 说明 |
 |------|------|-------------|------|
+| 上游 | [OpenClash](https://github.com/vernesong/OpenClash) | [vernesong](https://github.com/vernesong) | 本项目的基础 |
+| 代码基础 | [Luci For Clash](https://github.com/frainzy1477/luci-app-clash) | [frainzy1477](https://github.com/frainzy1477) | OpenClash 的代码基础 |
 | 内核 | [Mihomo](https://github.com/MetaCubeX/mihomo) | [MetaCubeX](https://github.com/MetaCubeX) | 代理内核（Clash Meta） |
-| 代码基础 | [Luci For Clash](https://github.com/frainzy1477/luci-app-clash) | [frainzy1477](https://github.com/frainzy1477) | 本项目代码基于此 |
-| 控制面板 | [metacubexd](https://github.com/MetaCubeX/metacubexd) | [MetaCubeX](https://github.com/MetaCubeX) | 默认内置面板 |
-| 控制面板 | [zashboard](https://github.com/Zephyruso/zashboard) | [Zephyruso](https://github.com/Zephyruso) | 内置面板 |
-| 控制面板 | [Yacd-meta](https://github.com/MetaCubeX/Yacd-meta) | [MetaCubeX](https://github.com/MetaCubeX) | 内置面板，基于 [yacd](https://github.com/haishanh/yacd) |
-| 控制面板 | [Razord-meta](https://github.com/MetaCubeX/Razord-meta) | [MetaCubeX](https://github.com/MetaCubeX) | 内置面板（Dashboard） |
+| 控制面板 | [zashboard](https://github.com/Zephyruso/zashboard) | [Zephyruso](https://github.com/Zephyruso) | 默认内置面板 |
+| 控制面板 | [metacubexd](https://github.com/MetaCubeX/metacubexd) | [MetaCubeX](https://github.com/MetaCubeX) | 内置面板 |
+| 控制面板 | [Yacd-meta](https://github.com/MetaCubeX/Yacd-meta) / [yacd](https://github.com/haishanh/yacd) | [MetaCubeX](https://github.com/MetaCubeX) / [haishanh](https://github.com/haishanh) | 可选面板 |
+| 控制面板 | [Razord-meta](https://github.com/MetaCubeX/Razord-meta) | [MetaCubeX](https://github.com/MetaCubeX) | 可选面板 |
 | 订阅转换 | [subconverter](https://github.com/tindy2013/subconverter) | [tindy2013](https://github.com/tindy2013) | 在线订阅转换 |
-| GEO / IP 数据 | [v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) | [Loyalsoldier](https://github.com/Loyalsoldier) | GeoIP / GeoSite 数据 |
-| GEO / IP 数据 | [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | [MetaCubeX](https://github.com/MetaCubeX) | GeoSite 规则数据 |
-| GEO / IP 数据 | [mmdb_china_ip_list](https://github.com/alecthw/mmdb_china_ip_list) | [alecthw](https://github.com/alecthw) | 中国 IP 列表 MMDB |
-| GEO / IP 数据 | [china-operator-ip](https://github.com/gaoyifan/china-operator-ip) | [gaoyifan](https://github.com/gaoyifan) | 运营商 IP 列表 |
 | 规则模板 | [ACL4SSR](https://github.com/ACL4SSR/ACL4SSR) | [ACL4SSR](https://github.com/ACL4SSR) | 订阅转换规则模板 |
-| 规则模板 | [Custom_OpenClash_Rules](https://github.com/Aethersailor/Custom_OpenClash_Rules) | [Aethersailor](https://github.com/Aethersailor) | 订阅转换规则模板 |
-| 流媒体检测 | [RegionRestrictionCheck](https://github.com/lmc999/RegionRestrictionCheck) | [lmc999](https://github.com/lmc999) | 流媒体解锁检测 |
-| IP 检查 | [ip.skk.moe](https://ip.skk.moe/) | [SukkaW](https://ip.skk.moe/) | 公网 IP 检测 |
+| GEO / IP 数据 | [meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) | [MetaCubeX](https://github.com/MetaCubeX) | GeoIP / GeoSite 数据 |
+| GEO / IP 数据 | [v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) | [Loyalsoldier](https://github.com/Loyalsoldier) | GeoIP / GeoSite 数据 |
+| GEO / IP 数据 | [mmdb_china_ip_list](https://github.com/alecthw/mmdb_china_ip_list) | [alecthw](https://github.com/alecthw) | 中国 IP 列表 MMDB |
 | 编辑器 | [CodeMirror](https://codemirror.net/) | [Marijn Haverbeke](https://github.com/marijnh) | 内置编辑器 |
-
-## 请作者喝杯咖啡
-
-* PayPal
-
-<p align="left">
-    <a href='https://ko-fi.com/H2H41G5LS' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi6.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-</p>
-
-* USDT-BSC
-
-<p align="left">
-    <img width="300" src="https://github.com/vernesong/OpenClash/raw/master/img/USDT-Wallet.png">
-</p>
+| 前端 | [React](https://react.dev/)、[Vite](https://vite.dev/)、[Tailwind CSS](https://tailwindcss.com/)、[shadcn/ui](https://ui.shadcn.com/)、[Radix UI](https://www.radix-ui.com/)、[Base UI](https://base-ui.com/)、[Lucide](https://lucide.dev/)、[Motion](https://motion.dev/) | | 管理界面 |
 
 ## 许可证
 
-本项目基于 [MIT License](LICENSE) 开源。
+本项目基于 [MIT License](LICENSE) 开源，保留上游 OpenClash 的版权声明。
