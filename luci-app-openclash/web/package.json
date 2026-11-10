@@ -4,8 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/arc.mjs --if-missing",
     "dev": "vite",
+    "prebuild": "node scripts/arc.mjs --if-missing",
     "build": "tsc -b && vite build",
+    "arc": "node scripts/arc.mjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },

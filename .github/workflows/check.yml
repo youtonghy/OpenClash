@@ -24,67 +24,61 @@ jobs:
       run:
         working-directory: luci-app-openclash/web
     env:
-      # Arc components live in the private submodule; forks and fork PRs have no key to read it
-      HAS_ARC_KEY: ${{ secrets.ARC_DEPLOY_KEY != '' }}
+      # Arc Pro is not in the repository: the components are fetched from the registry with this token.
+      # Forks and pull requests from forks have no access to it, so they skip the web build.
+      ARC_PRO_TOKEN: ${{ secrets.ARC_PRO_TOKEN }}
+      HAS_ARC_TOKEN: ${{ secrets.ARC_PRO_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v6
 
-      - name: Arc components unavailable
-        if: env.HAS_ARC_KEY != 'true'
-        run: echo "::notice::ARC_DEPLOY_KEY is not available, skipping the web build (the committed bundle is used as is)."
-
-      - name: Resolve Arc submodule commit
-        id: arc
-        if: env.HAS_ARC_KEY == 'true'
-        working-directory: .
-        run: echo "sha=$(git rev-parse HEAD:luci-app-openclash/web/src/components/arc)" >> "$GITHUB_OUTPUT"
-
-      - name: Check out Arc components
-        if: env.HAS_ARC_KEY == 'true'
-        uses: actions/checkout@v6
-        with:
-          repository: youtonghy/RouterClash-arc
-          ref: ${{ steps.arc.outputs.sha }}
-          ssh-key: ${{ secrets.ARC_DEPLOY_KEY }}
-          path: luci-app-openclash/web/src/components/arc
-          persist-credentials: false
+      - name: Arc token unavailable
+        if: env.HAS_ARC_TOKEN != 'true'
+        run: echo "::notice::ARC_PRO_TOKEN is not available here, skipping the web build."
 
       - uses: actions/setup-node@v4
-        if: env.HAS_ARC_KEY == 'true'
+        if: env.HAS_ARC_TOKEN == 'true'
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: luci-app-openclash/web/package-lock.json
 
       - name: Install dependencies
-        if: env.HAS_ARC_KEY == 'true'
+        if: env.HAS_ARC_TOKEN == 'true'
         run: npm ci
 
+      - name: Fetch Arc components
+        if: env.HAS_ARC_TOKEN == 'true'
+        run: npm run arc
+
       - name: Lint
-        if: env.HAS_ARC_KEY == 'true'
+        if: env.HAS_ARC_TOKEN == 'true'
         run: npx oxlint src/pages src/lib src/App.tsx
 
       - name: Type check and build
-        if: env.HAS_ARC_KEY == 'true'
+        if: env.HAS_ARC_TOKEN == 'true'
         run: npm run build
 
-      # The router serves the committed bundle, so it has to match src/
-      - name: Committed bundle is up to date
-        if: env.HAS_ARC_KEY == 'true'
-        working-directory: luci-app-openclash
-        run: |
-          git add -N root/www/luci-static/resources/openclash/app
-          if ! git diff --quiet -- root/www/luci-static/resources/openclash/app; then
-            git status --short -- root/www/luci-static/resources/openclash/app
-            echo "::error::The built web app differs from the committed one. Run 'npm run build' in luci-app-openclash/web and commit the result."
-            exit 1
-          fi
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_ARC_TOKEN == 'true'
+        with:
+          name: web-app
+          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
+          retention-days: 7
 
   package:
     name: Package
+    needs: web
+    # Still runs when the web build was skipped (no token); the ipk then has no UI
+    if: ${{ !cancelled() && needs.web.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: web-app
+          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
 
       - name: Install tools
         env:

@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 backup-pre-uiarc/
+
+# Arc components are fetched from the registry (npm run arc), never committed
+src/components/arc/
+src/components/arc.new/

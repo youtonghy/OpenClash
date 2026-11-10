@@ -61,3 +61,6 @@ build/
 # Patch files (unless intentional)
 *.orig
 *.rej
+
+# Built web app: `npm run build` in luci-app-openclash/web writes it, CI builds it for every package
+luci-app-openclash/root/www/luci-static/resources/openclash/app/

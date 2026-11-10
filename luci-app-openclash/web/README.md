@@ -5,12 +5,13 @@ the built files; Node is not needed on the device.
 
 ```sh
 npm install
+npm run arc     # fetch the Arc components (needs ARC_PRO_TOKEN, see "Arc components" below)
 npm run build   # writes to ../root/www/luci-static/resources/openclash/app
 npx oxlint src/pages src/lib src/App.tsx
 ```
 
-The built files are committed so the OpenWrt SDK can package them without Node. Run the build and
-commit the result whenever `src/` changes.
+The built files are not committed. CI builds them for every package and `../tools/build-ipk.sh` packs
+whatever is in that folder, so run `npm run build` before packaging by hand.
 
 ## Data flow
 
@@ -52,27 +53,20 @@ adding an option.
 
 ## Arc components
 
-`src/components/arc` holds Arc and Arc Pro source installed with the shadcn CLI, including local changes.
-Arc Pro is licensed, so it lives in the private repository
-[youtonghy/RouterClash-arc](https://github.com/youtonghy/RouterClash-arc), mounted here as a git submodule.
-The public repository only records which commit to use. Packaging does not need it, because the built
-bundle is committed.
+Arc Pro is licensed, so no Arc source is committed. `src/components/arc` is ignored by git and rebuilt from
+the registry by `npm run arc` (`predev` and `prebuild` run it when the folder is missing). It needs
+`ARC_PRO_TOKEN`, from the environment or from `.env.local`, which git ignores. CI reads the `ARC_PRO_TOKEN`
+secret and fetches fresh components on every run; forks and pull requests from forks have no secret, so they
+skip the web build.
 
-```sh
-git submodule update --init   # needs read access to RouterClash-arc
-```
+- `arc.json` lists the registry items to fetch.
+- `arc-overrides/` holds the four files we rewrote as a whole (the traffic globe and the availability block
+  with their data). They are copied over the fetched files.
+- `scripts/arc-patches.mjs` holds the small edits applied to other files. Each one must match exactly once, so
+  a registry update that moves the code fails the build instead of passing silently.
 
-Changing or adding components:
-
-```sh
-npx shadcn@latest add @uiarc/<name>       # needs ARC_PRO_TOKEN in .env.local, which git ignores
-npx shadcn@latest add @uiarc-pro/<name>
-cd src/components/arc && git add -A && git commit -m "..." && git push   # commit in the private repo first
-cd - && git add src/components/arc                                        # then record the new commit here
-```
-
-The Check workflow reads the private repository with the `ARC_DEPLOY_KEY` secret, a read-only deploy key.
-Without it (forks, pull requests from forks) the web build is skipped.
+To add an item, append it to `arc.json`. Do not use `npx shadcn add` for Arc: with the `base-nova` style it
+rewrites Radix `asChild` and drops comments, while `npm run arc` writes the registry files as published.
 
 ## Packaging
 

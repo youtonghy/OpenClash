@@ -7,6 +7,10 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="$(cd "${1:-$ROOT/..}" && pwd)"
 VERSION="$(sed -n 's/^PKG_VERSION:=//p' "$ROOT/Makefile")"
 WORK="$(mktemp -d)"
+# The web app is not committed, run `npm run build` in web/ first (CI downloads the build as an artifact)
+if [ ! -f "$ROOT/root/www/luci-static/resources/openclash/app/assets/app.js" ]; then
+	echo "warning: the web app is not built, this package will have no UI (see web/README.md)" >&2
+fi
 trap 'rm -rf "$WORK"' EXIT
 
 # Same payload the Makefile assembles: root/, luasrc/ under the LuCI tree, compiled translations

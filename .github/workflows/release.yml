@@ -64,12 +64,48 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
+  web:
+    name: Build web app
+    needs: version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: luci-app-openclash/web
+    env:
+      ARC_PRO_TOKEN: ${{ secrets.ARC_PRO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: luci-app-openclash/web/package-lock.json
+
+      - run: npm ci
+
+      # Arc Pro is not in the repository, every build fetches it from the registry
+      - name: Fetch Arc components
+        run: npm run arc
+
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-app
+          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
+
   ipk:
     name: Build ipk
-    needs: version
+    needs: [version, web]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-app
+          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
 
       - name: Set version
         env:
@@ -88,10 +124,15 @@ jobs:
 
   apk:
     name: Build apk
-    needs: version
+    needs: [version, web]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-app
+          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
 
       - name: Install dependencies
         env:
@@ -146,8 +187,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # Only the packages: the web-app artifact is an intermediate build output, not a release asset
       - uses: actions/download-artifact@v4
         with:
+          pattern: '*pk'
           path: dist
           merge-multiple: true
 
