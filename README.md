@@ -94,6 +94,11 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 2. 推送同名标签，例如 `git tag v0.49.003 && git push origin v0.49.003`；
 3. `Release` 工作流会校验标签与版本一致，构建 ipk（`tools/build-ipk.sh`）与 apk（OpenWrt SDK），并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
 
+也可以在 Actions 页面手动运行 `Release`（或 `gh workflow run release.yml -f version=0.49.003 -f publish=true`）：
+
+- `version`：要构建的版本号（如 `0.49.003`），留空则使用 Makefile 中的 `PKG_VERSION`；只覆盖本次构建，不会提交到仓库；
+- `publish`：勾选后在所选分支的当前提交上创建 `v<version>` 标签并发布 Release，该版本已发布时会直接失败；不勾选只构建产物。
+
 每次推送与 PR 都会运行 `Check` 工作流：前端 lint、类型检查与构建（并确认已提交的构建产物是最新的）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
 
 ## 依赖
