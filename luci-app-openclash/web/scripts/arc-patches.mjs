@@ -60,7 +60,52 @@ export const patches = [
   },
   {
     file: 'ridgeline/ridgeline.tsx',
-    edits: [{ find: `lo: 0, hi: 1 });`, replace: `lo: model.lo, hi: model.hi });` }],
+    edits: [
+      { find: `lo: 0, hi: 1 });`, replace: `lo: model.lo, hi: model.hi });` },
+      // Optional weights turn a ridge into a profile over the axis: its height follows the summed weight near each
+      // value instead of how often the value occurs, and weighted ridges share one scale instead of each being
+      // normalised to its own total. The statistics and the "at or below" share are weighted to match.
+      {
+        find: `  values: number[];\n}`,
+        replace: `  values: number[];\n  /** Weight of each value, such as bytes or milliseconds. Ridges with weights are scaled by their summed weight, so their heights compare across rows. */\n  weights?: number[];\n}`,
+      },
+      {
+        find: `n: number; sorted: number[] };`,
+        replace: `n: number; sorted: number[]; mass: number[]; total: number; weighted: boolean };`,
+      },
+      {
+        find:
+          `function statsOf(values: number[]): Stats {\n` +
+          `  const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);\n` +
+          `  return { sorted, n: sorted.length, min: sorted[0] ?? 0, max: sorted[sorted.length - 1] ?? 0, q1: quantile(sorted, .25), median: quantile(sorted, .5), q3: quantile(sorted, .75) };\n` +
+          `}`,
+        replace:
+          `function statsOf(values: number[], weights?: number[]): Stats {\n` +
+          `  const pairs = values.map((value, i) => [value, weights ? weights[i] ?? 0 : 1] as const).filter(([value, weight]) => Number.isFinite(value) && weight > 0).sort((a, b) => a[0] - b[0]);\n` +
+          `  const sorted = pairs.map(pair => pair[0]), mass = pairs.map(pair => pair[1]), total = mass.reduce((sum, weight) => sum + weight, 0);\n` +
+          `  const at = (q: number) => { if (!weights) return quantile(sorted, q); let sum = 0; for (let i = 0; i < sorted.length; i++) { sum += mass[i]!; if (sum >= q * total) return sorted[i]!; } return sorted[sorted.length - 1] ?? 0; };\n` +
+          `  return { sorted, mass, total, weighted: !!weights, n: sorted.length, min: sorted[0] ?? 0, max: sorted[sorted.length - 1] ?? 0, q1: at(.25), median: at(.5), q3: at(.75) };\n` +
+          `}\n` +
+          `const shareBelow = (stats: Stats, x: number) => { let sum = 0; stats.sorted.forEach((value, i) => { if (value <= x) sum += stats.mass[i]!; }); return stats.total ? sum / stats.total : 0; };`,
+      },
+      {
+        find: `const norm = 1 / (Math.max(1, stats.n) * bandwidth`,
+        replace: `const norm = 1 / ((stats.weighted ? 1 : Math.max(1, stats.n)) * bandwidth`,
+      },
+      {
+        find: `for (const value of stats.sorted) { const u = (x - value) / bandwidth; if (u > -5 && u < 5) sum += Math.exp(-.5 * u * u); }`,
+        replace: `stats.sorted.forEach((value, k) => { const u = (x - value) / bandwidth; if (u > -5 && u < 5) sum += stats.mass[k]! * Math.exp(-.5 * u * u); });`,
+      },
+      { find: `statsOf(entry.values)`, replace: `statsOf(entry.values, entry.weights)` },
+      {
+        find: `below: activeStats.n ? activeStats.sorted.filter(value => value <= cursor.value).length / activeStats.n : 0`,
+        replace: `below: shareBelow(activeStats, cursor.value)`,
+      },
+      {
+        find: `tipStats?.n ? tipStats.sorted.filter(value => value <= held.value!).length / tipStats.n : 0;`,
+        replace: `tipStats ? shareBelow(tipStats, held.value) : 0;`,
+      },
+    ],
   },
   {
     // The tsconfig forbids parameter properties (erasableSyntaxOnly)
