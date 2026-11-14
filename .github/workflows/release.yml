@@ -42,7 +42,7 @@ jobs:
           PUBLISH: ${{ inputs.publish }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          MAKEFILE_VERSION="$(sed -n 's/^PKG_VERSION:=//p' luci-app-openclash/Makefile)"
+          MAKEFILE_VERSION="$(sed -n 's/^PKG_VERSION:=//p' luci-app-routerclash/Makefile)"
           [ -n "$MAKEFILE_VERSION" ] || { echo "::error::PKG_VERSION not found"; exit 1; }
           VERSION="${INPUT_VERSION#v}"
           VERSION="${VERSION:-$MAKEFILE_VERSION}"
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: luci-app-openclash/web
+        working-directory: luci-app-routerclash/web
     env:
       ARC_PRO_TOKEN: ${{ secrets.ARC_PRO_TOKEN }}
     steps:
@@ -80,7 +80,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: luci-app-openclash/web/package-lock.json
+          cache-dependency-path: luci-app-routerclash/web/package-lock.json
 
       - run: npm ci
 
@@ -93,7 +93,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: web-app
-          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
+          path: luci-app-routerclash/root/www/luci-static/resources/routerclash/app
 
   ipk:
     name: Build ipk
@@ -105,17 +105,17 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: web-app
-          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
+          path: luci-app-routerclash/root/www/luci-static/resources/routerclash/app
 
       - name: Set version
         env:
           VERSION: ${{ needs.version.outputs.version }}
-        run: sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VERSION/" luci-app-openclash/Makefile
+        run: sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VERSION/" luci-app-routerclash/Makefile
 
       - name: Build
         run: |
           mkdir -p dist
-          bash luci-app-openclash/tools/build-ipk.sh dist
+          bash luci-app-routerclash/tools/build-ipk.sh dist
 
       - uses: actions/upload-artifact@v4
         with:
@@ -132,7 +132,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: web-app
-          path: luci-app-openclash/root/www/luci-static/resources/openclash/app
+          path: luci-app-routerclash/root/www/luci-static/resources/routerclash/app
 
       - name: Install dependencies
         env:
@@ -154,22 +154,22 @@ jobs:
       - name: Set version
         env:
           VERSION: ${{ needs.version.outputs.version }}
-        run: sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VERSION/" luci-app-openclash/Makefile
+        run: sed -i "s/^PKG_VERSION:=.*/PKG_VERSION:=$VERSION/" luci-app-routerclash/Makefile
 
       - name: Install po2lmo
         run: |
-          make -C luci-app-openclash/tools/po2lmo
-          sudo make -C luci-app-openclash/tools/po2lmo install
+          make -C luci-app-routerclash/tools/po2lmo
+          sudo make -C luci-app-routerclash/tools/po2lmo install
 
       - name: Build
         run: |
-          cp -R luci-app-openclash sdk/package/luci-app-openclash
-          rm -rf sdk/package/luci-app-openclash/web sdk/package/luci-app-openclash/tools
+          cp -R luci-app-routerclash sdk/package/luci-app-routerclash
+          rm -rf sdk/package/luci-app-routerclash/web sdk/package/luci-app-routerclash/tools
           cd sdk
           make defconfig
-          make package/luci-app-openclash/compile V=s -j1
+          make package/luci-app-routerclash/compile V=s -j1
           mkdir -p ../dist
-          find bin -name 'luci-app-openclash-*.apk' -exec cp {} ../dist/ \;
+          find bin -name 'luci-app-routerclash-*.apk' -exec cp {} ../dist/ \;
           ls ../dist/*.apk
 
       - uses: actions/upload-artifact@v4
@@ -201,7 +201,7 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
         run: |
           cp install.sh dist/
-          (cd dist && sha256sum luci-app-openclash* install.sh > sha256sums.txt && cat sha256sums.txt)
+          (cd dist && sha256sum luci-app-routerclash* install.sh > sha256sums.txt && cat sha256sums.txt)
           cat > notes.md <<EOF
           One-click install on OpenWrt:
 
@@ -209,8 +209,8 @@ jobs:
           wget -qO- https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/install.sh | sh
           \`\`\`
 
-          - \`luci-app-openclash_*.ipk\`: OpenWrt with opkg (24.10 and older)
-          - \`luci-app-openclash-*.apk\`: OpenWrt with apk (25.12 and newer)
+          - \`luci-app-routerclash_*.ipk\`: OpenWrt with opkg (24.10 and older)
+          - \`luci-app-routerclash-*.apk\`: OpenWrt with apk (25.12 and newer)
           EOF
           # A re-run of a tag build refreshes the assets; manual runs were checked for an existing release
           if gh release view "$TAG" >/dev/null 2>&1; then

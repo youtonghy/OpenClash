@@ -38,7 +38,7 @@ RouterClash 是 [OpenClash](https://github.com/vernesong/OpenClash) 的一个分
 - **更轻的功能面**：移除了流媒体解锁检测、Smart 内核、GEO 数据库定时更新、dnsmasq 转发与大陆白名单绕过等分支，只保留 Mihomo（Meta）内核。
 - **默认面板**：内置 zashboard（默认）与 metacubexd。
 
-包名与配置路径保持为 `luci-app-openclash` / `/etc/openclash`，可以直接覆盖安装在 OpenClash 之上并保留原有配置。
+包名为 `luci-app-routerclash`，配置与数据位于 `/etc/config/routerclash` 和 `/etc/routerclash`。它与 `luci-app-openclash` 冲突，不能同时安装；用一键脚本安装时会先卸载 OpenClash，并把原有配置、订阅和自定义文件迁移到新路径。
 
 ## 截图
 
@@ -90,7 +90,7 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 
 | 参数 | 说明 |
 |------|------|
-| `-v, --version <tag>` | 安装指定版本，例如 `v0.49.002`（`OPENCLASH_VERSION`） |
+| `-v, --version <tag>` | 安装指定版本，例如 `v0.49.002`（`ROUTERCLASH_VERSION`） |
 | `-p, --proxy <prefix>` | GitHub 下载加速前缀，例如 `https://ghfast.top/`（`GH_PROXY`） |
 | `--skip-deps` | 跳过依赖安装（`SKIP_DEPS=1`） |
 
@@ -106,7 +106,7 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 
 > 首次使用需要在 **更新** 页面下载 Mihomo 内核，请提前确认网络环境。
 
-使用说明可参考 [OpenClash 使用手册](.github/skills/openclash-user-guide/SKILL.md)（来自上游，部分功能在本分支中已移除）。
+使用说明可参考 [使用手册](.github/skills/routerclash-user-guide/SKILL.md)（来自上游，部分功能在本分支中已移除）。
 
 ## 下载
 
@@ -114,8 +114,8 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 
 | 安装包 | 适用系统 |
 |--------|------|
-| `luci-app-openclash_*.ipk` | 使用 opkg 的 OpenWrt（24.10 及更早） |
-| `luci-app-openclash-*.apk` | 使用 apk 的 OpenWrt（25.12 及更新） |
+| `luci-app-routerclash_*.ipk` | 使用 opkg 的 OpenWrt（24.10 及更早） |
+| `luci-app-routerclash-*.apk` | 使用 apk 的 OpenWrt（25.12 及更新） |
 
 每个 Release 同时附带 `install.sh` 与 `sha256sums.txt`。
 
@@ -134,16 +134,16 @@ wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/inst
 
 ### 前端
 
-LuCI 页面由 `luci-app-openclash/web` 中的 React 应用构建，构建产物不提交到仓库，打包前需要先构建（CI 会为每个包构建）。详见 [web/README.md](luci-app-openclash/web/README.md)。
+LuCI 页面由 `luci-app-routerclash/web` 中的 React 应用构建，构建产物不提交到仓库，打包前需要先构建（CI 会为每个包构建）。详见 [web/README.md](luci-app-routerclash/web/README.md)。
 
 界面使用的 [Arc](https://collectui.pro) 组件（含付费的 Arc Pro）受许可限制，仓库里不含其源码：构建时用 `ARC_PRO_TOKEN` 从 registry 现拉到被忽略的 `src/components/arc`。没有 token 无法构建前端，但不影响安装已发布的包。
 
 ```bash
-cd luci-app-openclash/web
+cd luci-app-routerclash/web
 npm install
 npm run arc     # 需要 ARC_PRO_TOKEN（环境变量或 web/.env.local）
-npm run dev     # 开发服务器，API 代理到 OC_RIG（默认 http://127.0.0.1:18080）
-npm run build   # 输出到 ../root/www/luci-static/resources/openclash/app，已被 git 忽略
+npm run dev     # 开发服务器，API 代理到 RC_RIG（默认 http://127.0.0.1:18080）
+npm run build   # 输出到 ../root/www/luci-static/resources/routerclash/app，已被 git 忽略
 ```
 
 ### 打包
@@ -151,15 +151,15 @@ npm run build   # 输出到 ../root/www/luci-static/resources/openclash/app，�
 插件与架构无关（`PKGARCH:=all`），ipk 可以不借助 SDK 直接打包：
 
 ```bash
-bash luci-app-openclash/tools/build-ipk.sh dist   # 生成 dist/luci-app-openclash_<版本>_all.ipk，需要先构建前端
+bash luci-app-routerclash/tools/build-ipk.sh dist   # 生成 dist/luci-app-routerclash_<版本>_all.ipk，需要先构建前端
 ```
 
-也可以把 `luci-app-openclash` 目录放进 OpenWrt SDK 或源码树的 `package/` 下，用 `make package/luci-app-openclash/compile` 编译（需要先在 `tools/po2lmo` 中 `make && sudo make install`）。apk 包即用 OpenWrt snapshot SDK 以这种方式构建。
+也可以把 `luci-app-routerclash` 目录放进 OpenWrt SDK 或源码树的 `package/` 下，用 `make package/luci-app-routerclash/compile` 编译（需要先在 `tools/po2lmo` 中 `make && sudo make install`）。apk 包即用 OpenWrt snapshot SDK 以这种方式构建。
 
 ### CI 与发布
 
 - **Check**：每次推送与 PR 运行前端 lint、类型检查与构建（用 `ARC_PRO_TOKEN` 现拉 Arc 组件；来自 fork 的 PR 没有 secret，会跳过这一步）、Lua / Shell / Ruby 语法检查，以及 ipk 打包。
-- **Release**：推送 `v<PKG_VERSION>` 标签（例如 `git tag v0.49.003 && git push origin v0.49.003`）后，校验标签与 `luci-app-openclash/Makefile` 中的版本一致，先构建前端，再打 ipk 与 apk，并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
+- **Release**：推送 `v<PKG_VERSION>` 标签（例如 `git tag v0.49.003 && git push origin v0.49.003`）后，校验标签与 `luci-app-routerclash/Makefile` 中的版本一致，先构建前端，再打 ipk 与 apk，并发布 Release（附 `install.sh` 与 `sha256sums.txt`）。
 
 也可以在 Actions 页面手动运行 `Release`（或 `gh workflow run release.yml -f version=0.49.003 -f publish=true`）：
 

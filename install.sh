@@ -1,16 +1,16 @@
 #!/bin/sh
-# One-click installer for RouterClash (luci-app-openclash) on OpenWrt.
+# One-click installer for RouterClash (luci-app-routerclash) on OpenWrt.
 #
 #   wget -qO- https://github.com/youtonghy/RouterClash/releases/latest/download/install.sh | sh
 #
 # Options (as arguments with `sh -s -- <options>`, or as environment variables):
-#   -v, --version <tag>   install this release instead of the latest   (OPENCLASH_VERSION)
+#   -v, --version <tag>   install this release instead of the latest   (ROUTERCLASH_VERSION)
 #   -p, --proxy <prefix>  prefix for GitHub download links, for example
 #                         https://ghfast.top/                          (GH_PROXY)
 #   --skip-deps           do not install dependencies                  (SKIP_DEPS=1)
 
-REPO="${OPENCLASH_REPO:-youtonghy/RouterClash}"
-VERSION="${OPENCLASH_VERSION:-latest}"
+REPO="${ROUTERCLASH_REPO:-youtonghy/RouterClash}"
+VERSION="${ROUTERCLASH_VERSION:-latest}"
 PROXY="${GH_PROXY:-}"
 SKIP_DEPS="${SKIP_DEPS:-0}"
 
@@ -128,9 +128,9 @@ info "fetching the release index ($VERSION)"
 fetch "$BASE/sha256sums.txt" "$TMP/sha256sums.txt" || die "cannot download $BASE/sha256sums.txt"
 
 if [ "$PM" = "apk" ]; then
-	PKG="$(awk '{sub(/^\*/, "", $2)} $2 ~ /^luci-app-openclash-.*\.apk$/ {print $2; exit}' "$TMP/sha256sums.txt")"
+	PKG="$(awk '{sub(/^\*/, "", $2)} $2 ~ /^luci-app-routerclash-.*\.apk$/ {print $2; exit}' "$TMP/sha256sums.txt")"
 else
-	PKG="$(awk '{sub(/^\*/, "", $2)} $2 ~ /^luci-app-openclash_.*\.ipk$/ {print $2; exit}' "$TMP/sha256sums.txt")"
+	PKG="$(awk '{sub(/^\*/, "", $2)} $2 ~ /^luci-app-routerclash_.*\.ipk$/ {print $2; exit}' "$TMP/sha256sums.txt")"
 fi
 [ -n "$PKG" ] || die "release $VERSION has no package for $PM"
 
@@ -148,5 +148,5 @@ fi
 rm -rf /tmp/luci-indexcache /tmp/luci-indexcache.* /tmp/luci-modulecache >/dev/null 2>&1
 
 LAN_IP="$(uci -q get network.lan.ipaddr | cut -d/ -f1)"
-info "done. Open http://${LAN_IP:-<router-ip>}/cgi-bin/luci/admin/services/openclash"
+info "done. Open http://${LAN_IP:-<router-ip>}/cgi-bin/luci/admin/services/routerclash"
 info "the mihomo core is downloaded from the page on first use"
