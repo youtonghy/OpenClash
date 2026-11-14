@@ -28,6 +28,8 @@ define Package/$(PKG_NAME)/config
 	default y if ! PACKAGE_firewall4
 endef
 
+# CONFLICTS: OpenClash uses the same ports, firewall marks and routing table;
+# uci-defaults migrates its data when this package replaces it
 define Package/$(PKG_NAME)
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
@@ -35,6 +37,7 @@ define Package/$(PKG_NAME)
 	PKGARCH:=all
 	DEPENDS:=+bash +curl +ca-bundle +ip-full \
 	+ruby +ruby-yaml +kmod-tun +unzip
+	CONFLICTS:=luci-app-openclash
 	MAINTAINER:=youtonghy
 endef
 

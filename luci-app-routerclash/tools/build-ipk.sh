@@ -65,6 +65,7 @@ cat >"$WORK/control/control" <<S
 Package: luci-app-routerclash
 Version: $VERSION
 Depends: libc, bash, curl, ca-bundle, ip-full, ruby, ruby-yaml, kmod-tun, unzip
+Conflicts: luci-app-openclash
 Section: opt
 Maintainer: youtonghy
 Architecture: all

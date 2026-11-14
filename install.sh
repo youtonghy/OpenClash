@@ -138,6 +138,25 @@ info "downloading $PKG"
 fetch "$BASE/$PKG" "$TMP/$PKG" || die "cannot download $BASE/$PKG"
 (cd "$TMP" && grep " \*\{0,1\}$PKG\$" sha256sums.txt | sha256sum -c - >/dev/null) || die "checksum mismatch for $PKG"
 
+# RouterClash replaces OpenClash (the packages conflict). Keep a copy of its settings and data
+# where the new package's uci-defaults picks them up, then remove the old package.
+if [ -z "$(missing luci-app-openclash)" ]; then
+	info "migrating from luci-app-openclash"
+	if [ -f /etc/config/openclash ] && [ ! -f /etc/.openclash-upgrade/config ]; then
+		rm -rf /etc/.openclash-upgrade
+		mkdir -p /etc/.openclash-upgrade || die "cannot create /etc/.openclash-upgrade"
+		cp -f /etc/config/openclash /etc/.openclash-upgrade/config || die "cannot back up /etc/config/openclash"
+		[ ! -d /etc/openclash ] || cp -rf /etc/openclash /etc/.openclash-upgrade/openclash || die "cannot back up /etc/openclash"
+		[ ! -d /usr/share/openclash/ui ] || cp -rf /usr/share/openclash/ui /etc/.openclash-upgrade/ui || warn "cannot back up the dashboards"
+	fi
+	[ -x /etc/init.d/openclash ] && /etc/init.d/openclash stop >/dev/null 2>&1
+	if [ "$PM" = "apk" ]; then
+		apk del luci-app-openclash || die "removing luci-app-openclash failed, its data is kept in /etc/.openclash-upgrade"
+	else
+		opkg remove luci-app-openclash || die "removing luci-app-openclash failed, its data is kept in /etc/.openclash-upgrade"
+	fi
+fi
+
 info "installing $PKG"
 if [ "$PM" = "apk" ]; then
 	apk add --allow-untrusted --force-overwrite "$TMP/$PKG" || die "installing $PKG failed"

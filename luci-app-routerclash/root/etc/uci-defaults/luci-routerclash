@@ -2,6 +2,56 @@
 . /lib/functions.sh
 . /usr/share/routerclash/uci.sh
 
+#Migrate from luci-app-openclash. Removing that package leaves a copy of its data in
+#/etc/.openclash-upgrade (prerm) and deletes the originals (postrm); a copy is taken here when
+#the originals are still around without the package. The copy goes to /etc/.routerclash-upgrade
+#under the new names and is restored by the "Restore" step below.
+if [ ! -e "/etc/init.d/openclash" ]; then
+	RC_LEGACY_DIR="/etc/.openclash-upgrade"
+	if [ ! -f "$RC_LEGACY_DIR/config" ] && [ -f "/etc/config/openclash" ]; then
+		mkdir -p "$RC_LEGACY_DIR"
+		cp -f "/etc/config/openclash" "$RC_LEGACY_DIR/config"
+		[ -d "/etc/openclash" ] && cp -rf "/etc/openclash" "$RC_LEGACY_DIR/openclash"
+		[ -d "/usr/share/openclash/ui" ] && cp -rf "/usr/share/openclash/ui" "$RC_LEGACY_DIR/ui"
+	fi
+	if [ -f "$RC_LEGACY_DIR/config" ] && [ ! -f "/etc/.routerclash-upgrade/config" ]; then
+		RC_MIGRATE_DIR="/etc/.routerclash-upgrade"
+		rm -rf "$RC_MIGRATE_DIR"
+		mkdir -p "$RC_MIGRATE_DIR"
+		mv -f "$RC_LEGACY_DIR/config" "$RC_MIGRATE_DIR/config"
+		[ -d "$RC_LEGACY_DIR/openclash" ] && mv -f "$RC_LEGACY_DIR/openclash" "$RC_MIGRATE_DIR/routerclash"
+		[ -d "$RC_LEGACY_DIR/ui" ] && mv -f "$RC_LEGACY_DIR/ui" "$RC_MIGRATE_DIR/ui"
+		for f in "$RC_MIGRATE_DIR"/routerclash/custom/openclash_custom_*; do
+			[ -e "$f" ] && mv -f "$f" "${f%/*}/routerclash_custom_${f##*/openclash_custom_}"
+		done
+		[ -f "$RC_MIGRATE_DIR/routerclash/rule_provider/oc-cn-domain.mrs" ] && \
+			mv -f "$RC_MIGRATE_DIR/routerclash/rule_provider/oc-cn-domain.mrs" "$RC_MIGRATE_DIR/routerclash/rule_provider/rc-cn-domain.mrs"
+		#paths, file names and UCI keys in the settings and in user-written files. The left-hand
+		#guard keeps URLs such as .../root/etc/openclash/overwrite/default (upstream modules) intact.
+		RC_PATHS='s#(^|[^A-Za-z0-9_.-])/(tmp/etc|var/etc|etc/init\.d|etc|usr/share|tmp)/openclash#\1/\2/routerclash#g; s#openclash_custom_#routerclash_custom_#g; s#oc-cn-domain#rc-cn-domain#g'
+		RC_KEYS='s#(^|[^A-Za-z0-9_./-])openclash\.#\1routerclash.#g'
+		sed -i -E "$RC_PATHS; $RC_KEYS; s#^config openclash #config routerclash #" "$RC_MIGRATE_DIR/config"
+		for d in custom overwrite; do
+			[ -d "$RC_MIGRATE_DIR/routerclash/$d" ] && find "$RC_MIGRATE_DIR/routerclash/$d" -type f -exec sed -i -E "$RC_PATHS; $RC_KEYS" {} +
+		done
+		[ -d "$RC_MIGRATE_DIR/routerclash/config" ] && find "$RC_MIGRATE_DIR/routerclash/config" -type f \( -name '*.yaml' -o -name '*.yml' \) -exec sed -i -E "$RC_PATHS" {} +
+	fi
+	#leftovers of the old package: data, firewall includes, kill switch, sysupgrade list
+	rm -rf "$RC_LEGACY_DIR" "/etc/openclash" "/etc/config/openclash" "/usr/share/openclash" "/lib/upgrade/keep.d/luci-app-openclash" >/dev/null 2>&1
+	uci -q delete firewall.openclash
+	uci -q delete firewall.openclash_ks
+	[ -e "/etc/config/ucitrack" ] && uci -q delete ucitrack.@openclash[-1]
+	nft delete table inet oc_killswitch >/dev/null 2>&1
+	for ipt in iptables ip6tables; do
+		command -v $ipt >/dev/null 2>&1 || continue
+		$ipt -w -S FORWARD 2>/dev/null | grep -- "-j oc_killswitch\$" | sed 's/^-A /-D /' | while read -r rule; do
+			eval "$ipt -w $rule" 2>/dev/null
+		done
+		$ipt -w -F oc_killswitch 2>/dev/null
+		$ipt -w -X oc_killswitch 2>/dev/null
+	done
+fi
+
 [ -e "/etc/config/ucitrack" ] && {
 uci -q delete ucitrack.@routerclash[-1]
 uci -q add ucitrack routerclash
